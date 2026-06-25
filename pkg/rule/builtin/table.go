@@ -44,7 +44,7 @@ func (t TableColumnCount) Check(doc *document.Document, report func(rule.Finding
 				Path:     doc.Path,
 				Line:     ln.Num,
 				Col:      1,
-				Message:  fmt.Sprintf("table row has %d columns; header defines %d", got, tbl.Cols),
+				Message:  fmt.Sprintf("table row has %d cell(s) but the table has %d column(s)", got, tbl.Cols),
 				Severity: rule.Error,
 				Safety:   rule.NoFix,
 			})

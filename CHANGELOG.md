@@ -6,12 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-25
+
 ### Added
-- `lint` command: report findings with `--format human|json`, exit non-zero on errors.
-- `lint --fix` with safe/unsafe fix tiers (`--unsafe-fixes`) and `--diff` preview.
-- `fmt` command: idempotent, fence-aware markdown spacing normalizer (`--check`/`--diff`).
-- Built-in `details-blank-line` rule with a safe autofix.
-- Built-in `table-column-count` rule: flags GFM table rows whose column count differs from the header.
+- Built-in `table-column-count` rule: flags GFM table rows whose cell count differs from the header.
 - Built-in `no-missing-space-atx` rule (markdownlint MD018): flags a glued `#Heading` (no space after the hashes) that CommonMark/Goldmark renders as literal text, with a safe one-space autofix; `fmt` applies it too.
 - Built-in `heading-start-left` rule (markdownlint MD023): flags an ATX heading indented from the left margin (1-3 spaces cosmetic, 4+ demotes it to an indented code block and loses the heading), with a safe dedent autofix that `fmt` applies too; the fix is withheld when the heading is nested in a list item (dedenting would de-nest it).
 - Built-in `blanks-around-fences` rule (markdownlint MD031): flags a fenced code block whose opening delimiter is butted against the preceding line or whose closing delimiter is butted against the following line (a fence glued to prose can fail to be parsed as a code block), with a safe blank-line autofix that `fmt` applies too; the document's first and last lines are exempt.
@@ -21,6 +19,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Built-in `no-alt-text` rule (markdownlint MD045): flags an inline image with empty or whitespace-only alt text (`![](url)` or `![ ](url)`) — the image renders but a screen reader announces nothing and search engines lose the image's textual signal, a real accessibility and SEO defect on a public multilingual site; reported as a warning with no autofix because meaningful alt text must be authored by a human. Image syntax inside an inline code span (`` `![](url)` ``) or a fenced code block is illustrative and ignored.
 - Built-in `no-trailing-spaces` rule (markdownlint MD009): flags a line ending in a single stray trailing space or in three or more (which the renderer collapses back to a two-space break), and any whitespace-only line with trailing spaces; reported as a warning with **no autofix** by design — exactly two trailing spaces are a deliberate markdown hard line break, so the `fmt` pass never strips trailing whitespace and the line is surfaced for a human instead. Lines inside a fenced code block are significant content and are ignored.
 - `fmt` aligns well-formed GFM table columns (shared per-column widths, preserved alignment colons); malformed tables are left untouched.
+
+### Fixed
+- `blanks-around-lists`: nested sublists and indented Hugo shortcodes (`{{< … >}}` / `{{% … %}}`) and attribute blocks (`{.class}`) are now treated as one list region, eliminating false-positive boundary findings inside list items.
+
+## [0.1.2] - 2026-06-25
+
+### Changed
+- Release changelog renders linked short commit SHAs (`[sha](commit-url)`) and `@author`.
+
+## [0.1.1] - 2026-06-25
+
+### Fixed
+- JSON output emits literal `<`/`>` instead of `<`/`>` (no HTML escaping).
+
+### Added
+- README documents the `enable`/`disable` configuration fields.
+
+## [0.1.0] - 2026-06-25
+
+### Added
+- `lint` command: report findings with `--format human|json`, exit non-zero on errors.
+- `lint --fix` with safe/unsafe fix tiers (`--unsafe-fixes`) and `--diff` preview.
+- `fmt` command: idempotent, fence-aware markdown spacing normalizer (`--check`/`--diff`).
+- Built-in `details-blank-line` rule with a safe autofix.
 - Declarative custom rules in `.doclint.yaml`: `required`, `length`, `not_equal`, `match`, `deny`.
 - Markdown (frontmatter) and data-file (YAML/TOML/JSON) linting.
 - Inline suppression (`<!-- doclint-disable-next-line <rule> -->`) with unused-directive warnings.
