@@ -2,16 +2,25 @@
 // files against built-in and user-defined rules.
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
 
-// Build-time version metadata (set via -ldflags by GoReleaser).
+	"github.com/openserbia/doclint/internal/cli"
+)
+
 var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
 )
 
+// exitErr is the exit code used when Execute returns an error.
+const exitErr = 2
+
 func main() {
-	// Replaced by Cobra Execute() in Task 13.
-	fmt.Printf("doclint %s (commit %s, built %s)\n", version, commit, date)
+	if err := cli.NewRootCmd(version, commit, date).Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "doclint:", err)
+		os.Exit(exitErr)
+	}
 }

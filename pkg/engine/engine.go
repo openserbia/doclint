@@ -349,3 +349,18 @@ func sortFindings(f []rule.Finding) {
 		return f[i].Col < f[j].Col
 	})
 }
+
+// MarkdownFiles returns the discovered markdown file paths under paths.
+func (e *Engine) MarkdownFiles(paths []string) ([]string, error) {
+	files, err := e.discover(paths)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range files {
+		if f.format == document.Markdown {
+			out = append(out, f.path)
+		}
+	}
+	return out, nil
+}
