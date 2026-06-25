@@ -215,6 +215,18 @@ and data directories (or use `ignore` globs in config).
   ![](/images/skadarlija.jpg)
   ```
 
+- **no-trailing-spaces** (markdownlint MD009) — a line should not end in stray
+  trailing spaces. Exactly **two** trailing spaces are a markdown hard line break
+  (`<br>`) and are deliberately left alone; everything else is suspect: a single
+  trailing space is invisible and renders as nothing, three or more collapse back
+  to the same two-space break (so the extras are meaningless), and a
+  whitespace-only line has no content for a break to attach to. `doclint` flags
+  these (a warning) with **no autofix**: the `fmt` pass refuses to strip trailing
+  whitespace because a blanket trim would silently delete the two-space hard break
+  this rule protects, so the line is surfaced for a human to fix. Lines inside a
+  fenced code block are significant content and are ignored. Flagged (the `·`
+  marks a trailing space) — `end·` and `tail···`, but not `break··`.
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,
