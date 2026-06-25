@@ -180,6 +180,46 @@ func TestFormat_BlanksAroundListsIdempotent(t *testing.T) {
 	}
 }
 
+func TestFormat_AddsBlanksAroundHeadings(t *testing.T) {
+	got := format(t, "before\n# Heading\nafter\n")
+	want := "before\n\n# Heading\n\nafter\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_BlanksAroundHeadingsIdempotent(t *testing.T) {
+	in := "intro\n## Section\nbody\n"
+	once := format(t, in)
+	doc, _ := document.ParseMarkdown("t.md", []byte(once))
+	twice := string(Format(doc))
+	if once != twice {
+		t.Errorf("blanks-around-headings format not idempotent:\n once=%q\ntwice=%q", once, twice)
+	}
+	if want := "intro\n\n## Section\n\nbody\n"; once != want {
+		t.Errorf("got %q, want %q", once, want)
+	}
+}
+
+func TestFormat_AddsBlankBelowSetextHeading(t *testing.T) {
+	got := format(t, "Title\n=====\ntext\n")
+	want := "Title\n=====\n\ntext\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_IndentedHeadingDedentAndBlankCoexist(t *testing.T) {
+	// heading-start-left dedents the heading while blanks-around-headings inserts
+	// the blank above it; the two edits sit at distinct offsets, so ApplyEdits
+	// applies both rather than failing on a spurious overlap.
+	got := format(t, "text\n  ## Indented\n")
+	want := "text\n\n## Indented\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestFormat_PreservesFencedInteriorWhenAddingBlanks(t *testing.T) {
 	// The blank insertion is on the OUTSIDE of the fence; the fenced interior
 	// (including its own blank lines) must be left byte-for-byte intact.

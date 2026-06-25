@@ -159,6 +159,33 @@ and data directories (or use `ignore` globs in config).
   Outro paragraph
   ```
 
+- **blanks-around-headings** (markdownlint MD022) — an ATX heading (`# Heading`)
+  or setext heading (a text line underlined by `===` or `---`) should have a blank
+  line both above and below it. The surrounding blank is mostly structural
+  hygiene, but a setext underline only parses as a heading when its text line is a
+  paragraph, and some list adjacencies need the blank to render as a heading at
+  all. `doclint` flags this (a warning) and inserts the missing blank line (a safe
+  fix); `fmt` applies it too. Fenced code and frontmatter are skipped (so a YAML
+  `---` is never mistaken for a setext underline), and the document's first and
+  last lines are exempt. A heading nested inside a list item is left alone
+  (dedenting/de-nesting risk), and the setext above-blank is only added at a
+  structural boundary so a multi-line setext heading is never split. Flagged vs.
+  fixed:
+
+  ```markdown
+  Intro paragraph
+  # Heading
+  Body text
+  ```
+
+  ```markdown
+  Intro paragraph
+
+  # Heading
+
+  Body text
+  ```
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,

@@ -10,4 +10,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(HeadingStartLeft{})
 	reg.Register(BlanksAroundFences{})
 	reg.Register(BlanksAroundLists{})
+	reg.Register(BlanksAroundHeadings{})
 }

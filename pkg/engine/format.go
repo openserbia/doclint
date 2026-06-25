@@ -77,6 +77,14 @@ func Format(doc *document.Document) []byte {
 // fence/heading offsets; when it and blanks-around-fences both insert at a
 // list↔fence boundary the doubled blank is collapsed by the blank-run pass too. It
 // is frontmatter-aware (it skips frontmatter so a YAML list is never touched).
+//
+// blanks-around-headings adds the same blank-insertion around an ATX or setext
+// heading that is butted against adjacent content. Its below-blank sits at a
+// heading/underline line's End and its above-blank at the previous line's End —
+// the latter deliberately chosen so it never coincides with heading-start-left's
+// dedent edit at the heading line's Start, so the two always-safe fixes never
+// produce a spurious ApplyEdits overlap. Where it inserts at the same boundary as
+// another blanks-around-* fix the doubled blank is collapsed by the blank-run pass.
 func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	var fixes []rule.TextEdit
 	collect := func(f rule.Finding) {
@@ -89,5 +97,6 @@ func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	(builtin.HeadingStartLeft{}).Check(doc, collect)
 	(builtin.BlanksAroundFences{}).Check(doc, collect)
 	(builtin.BlanksAroundLists{}).Check(doc, collect)
+	(builtin.BlanksAroundHeadings{}).Check(doc, collect)
 	return fixes
 }
