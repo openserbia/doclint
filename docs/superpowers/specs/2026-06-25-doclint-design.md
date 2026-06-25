@@ -3,27 +3,27 @@
 - **Date:** 2026-06-25
 - **Status:** Approved (design); pending implementation plan
 - **Repo:** `openserbia/doclint`
-- **Author:** Oleg (OCharnyshevich)
 
 ## 1. Summary
 
 `doclint` is a fast, single-binary Go CLI that lints, auto-fixes, and formats a
-Hugo project's **markdown content** and **data files** against built-in *and*
-user-defined custom rules. It is the clean, scalable successor to the two
-"hacky" rule scripts currently guarding `srb.guide`:
-
-- `scripts/lint-details.mjs` (Bun/JS) — a Goldmark source gotcha checker.
-- `scripts/lint-frontmatter.sh` (Bash) — frontmatter/SEO constraints.
+Hugo site's **markdown content** and **data files** against built-in *and*
+user-defined custom rules. It is the clean, scalable successor to ad-hoc rule
+scripts that commonly accrete around a Hugo project — typically a mix of small
+JS and shell linters with no shared config or output.
 
 It runs as a **pre-deploy gate** (locally and, optionally, in CI) the way
 `golangci-lint` guards Go code.
 
 ## 2. Motivation
 
-The current rules work but are unmaintainable: two languages (JS + Bash),
-ad-hoc string surgery, no shared config, no unified output, no safe/unsafe fix
-distinction, and adding a rule means hand-writing a new script. The goal is one
-tool where:
+A maturing Hugo site tends to grow one-off content checks: a JS script for a
+markdown rendering gotcha, a shell script for frontmatter/SEO constraints, plus
+a generic markdown style linter. They work but are unmaintainable: multiple
+languages, ad-hoc string surgery, no shared config, no unified output, no
+safe/unsafe fix distinction, and adding a rule means hand-writing a new script.
+
+The goal is one tool where:
 
 - simple rules are **declared in YAML** (no recompile),
 - complex rules are **written in Go** against a small interface,
@@ -48,9 +48,9 @@ tool where:
 
 ### Non-goals (v1)
 - Linting Go **templates** (`layouts/**`) — needs a real template parser; out of scope.
-- External HTTP **link checking** — `srb.guide` already uses `linkchecker`; not duplicated.
-- Generic markdown **style** rules (MD0xx) — keep delegating to `markdownlint-cli2`
-  initially; absorb later only if it earns its keep.
+- External HTTP **link checking** — already well served by dedicated tools; not duplicated.
+- Generic markdown **style** rules (MD0xx) — keep delegating to an existing
+  markdown style linter initially; absorb later only if it earns its keep.
 - LSP server, SARIF/GitHub-annotation output, baseline files — **Phase 2**.
 
 ## 4. Prior art & build-vs-reuse
@@ -75,17 +75,16 @@ Format-agnostic core; markdown and data files are **plugins into** the engine,
 not the engine itself.
 
 ```
-cmd/doclint            # Cobra CLI entrypoint
-pkg/engine             # discovery, config load, parallel scheduling, fix applier,
-                       # severity, exit codes — knows nothing about markdown
+cmd/doclint            # Cobra CLI entrypoint (thin)
+internal/cli           # Cobra command wiring (root, lint, fmt, explain, list)
 pkg/document           # Document{Format, Raw, Lines, Frontmatter/Data, Body, AST(lazy)}
                        # + parser registry keyed by Format
-pkg/format/markdown    # Goldmark parser + frontmatter extraction -> Document views
-pkg/format/data        # YAML/TOML/JSON loader -> Document.Data (generic map/tree)
-pkg/rules              # Rule interface, registry, declarative-rule interpreter
-pkg/rules/builtin      # programmatic Go rules (details, ...)
+pkg/rule               # Rule interface, registry, declarative-rule interpreter,
+                       # builtin programmatic rules
+pkg/config             # .doclint.yaml schema + loader + discovery
+pkg/engine             # discovery, parallel scheduling, suppression, fix applier,
+                       # severity, exit codes — knows nothing about markdown
 pkg/report             # reporters: human (colored), json
-pkg/config             # .doclint.yaml schema + loader
 ```
 
 ### 5.1 Document model
@@ -100,7 +99,7 @@ type Document struct {
     Lines       []Line          // fence-aware helpers (source view)
     Frontmatter map[string]any  // markdown: parsed frontmatter; data: whole file
     Body        []byte          // markdown content after frontmatter
-    ast         ast.Node        // lazily built, markdown only
+    // ast built lazily, markdown only
 }
 ```
 
@@ -112,14 +111,15 @@ same parsed-map view as frontmatter, so declarative rules work on both.
 ### 5.2 Rule interface
 
 ```go
-type Severity int // Error | Warning | Info
+type Severity int // Info | Warning | Error
 
 type Meta struct {
     Name        string     // stable id, e.g. "details-blank-line"
     Description string
+    Detail      string     // long help for `explain`
     Severity    Severity   // default; overridable in config
     Formats     []Format   // which formats it applies to
-    FixSafety   FixSafety  // Safe | Unsafe | None
+    Safety      FixSafety  // Safe | Unsafe | NoFix
 }
 
 type Rule interface {
@@ -134,12 +134,8 @@ type Finding struct {
     Col      int
     Message  string
     Severity Severity
-    Fixes    []TextEdit // optional; tagged via Meta.FixSafety
-}
-
-type TextEdit struct {
-    Start, End int    // byte offsets into Document.Raw
-    NewText    string
+    Safety   FixSafety
+    Fixes    []TextEdit // optional; byte-offset edits into Document.Raw
 }
 ```
 
@@ -150,23 +146,21 @@ LSP quick-fixes are all the **same data** viewed differently.
 
 ### 6.1 Declarative rules (YAML, no recompile)
 Authored in the config `custom:` block; interpreted by a generic engine over the
-parsed-map view. Covers the easy 80% and **fully replaces `lint-frontmatter.sh`**:
+parsed-map view. Covers the easy 80% — frontmatter + data-file constraints:
 
-- `required` — key must exist and be non-empty (skip when `draft: true`).
+- `required` — key must exist and be non-empty (optionally skip drafts).
 - `length` — value char length within `[min, max]` (e.g. SEO description 120–160).
 - `not_equal` — `fieldA != fieldB` (e.g. `description != lead`).
 - `match` / `deny` — value matches / must not match a regex.
-- `filename` — path/slug naming conventions.
-- scoping: `glob` (e.g. `content/guides/**`) + optional `when` predicate.
+- scoping: `glob` (e.g. `content/guides/**`) + optional `skip_drafts`.
 
 ### 6.2 Programmatic rules (Go)
-Implement `Rule`; compiled in. Cover the hard 20% and **replace
-`lint-details.mjs`**:
+Implement `Rule`; compiled in. Cover the hard 20%:
 
 - `details-blank-line` — fence-aware scan: every literal `</summary>` must end its
-  line and be followed by a blank line (else inner markdown is swallowed as an
-  HTML block). Exempts the `{{< details >}}` shortcode. Emits a **safe**
-  `TextEdit` that inserts the blank line / splits glued content.
+  line and be followed by a blank line (else the inner markdown is swallowed as
+  an HTML block and never renders). Exempts the `{{< details >}}` shortcode form.
+  Emits a **safe** `TextEdit` that inserts the blank line / splits glued content.
 - room for: shortcode validity, internal-link/asset existence, image alt-text.
 
 ## 7. CLI
@@ -175,7 +169,7 @@ Built on Cobra, mirroring `golangci-lint` v2 ergonomics.
 
 | Command | Behavior |
 |---|---|
-| `doclint lint [paths…]` | Report findings; **never mutates** (this is the dry-run / "list all problems"); exit non-zero on Error. |
+| `doclint lint [paths…]` | Report findings; **never mutates** (the dry-run / "list all problems"); exit non-zero on Error. |
 | `doclint lint --fix` | Apply **safe** fixes in place. |
 | `doclint lint --fix --unsafe-fixes` | Also apply unsafe fixes. |
 | `doclint lint --diff` | Print the patch fixes *would* make; write nothing. |
@@ -189,11 +183,10 @@ Global flags: `--config`, `--format human|json`, `--no-color`, `--quiet`.
 ## 8. Formatter (`fmt`)
 
 Deterministic, idempotent whitespace pass — the markdown analog of `gofmt`:
-blank lines around headings/lists/code-fences/tables, the `</summary>` blank
-line, trailing-whitespace strip, single final newline, consistent list markers.
-Fence-aware (never touches code-block interiors). Shares the `TextEdit` engine
-with `lint --fix`; "format" findings are just rules whose fix is always-safe and
-auto-applied by `fmt`.
+strip trailing whitespace, ensure a single final newline, collapse 3+ blank
+lines, and apply the always-safe `</summary>` blank-line fix. Fence-aware (never
+touches code-block interiors). Shares the `TextEdit` engine with `lint --fix`;
+"format" fixes are just always-safe edits that `fmt` auto-applies.
 
 ## 9. Config — `.doclint.yaml`
 
@@ -218,7 +211,7 @@ custom:
     type: required
     glob: "content/**/*.md"
     field: description
-    when: "draft != true"
+    skip_drafts: true
     severity: error
 
   - id: seo-description-length
@@ -245,28 +238,27 @@ suppressions.
 - `human` (default): colored `path:line:col [rule] severity message`, summary footer.
 - `json`: stable machine schema (array of `Finding`).
 - Exit `0` clean, `1` on Error-severity findings, `2` on internal/config error.
-  Warnings don't fail by default (`--max-warnings` to tighten).
+  **Warnings are advisory** — they don't fail the build by default
+  (`--max-warnings N` to tighten).
 
 ## 11. Distribution & releases
 
 - **GoReleaser** (`.goreleaser.yaml`): cross-platform static binaries
   (linux/darwin amd64+arm64), archives, checksums, GitHub Release on tag `v*`.
-  Optional Docker image to follow the org's Wolfi/distroless pattern (Phase 2).
+  Optional Docker image to follow the org's container pattern (Phase 2).
 - **Release workflow** (`.github/workflows/release.yml`): on tag push, run
-  GoReleaser (mirrors the org's auto-release pattern).
-- **Consumption by `srb.guide`:** pin a version via
+  GoReleaser.
+- **Consumption by a Hugo site:** pin a version via
   `go install github.com/openserbia/doclint/cmd/doclint@vX.Y.Z` (or download the
-  released binary) and wire into `srb.guide`'s `task lint`, replacing the
-  `lint:frontmatter` + `lint:details` npm scripts.
+  released binary) and wire it into the site's task runner, replacing any
+  ad-hoc lint scripts.
 
 ## 12. Changelog
 
-- **`CHANGELOG.md`** in [Keep a Changelog](https://keepachangelog.com) format,
-  SemVer.
-- **Conventional Commits** (the org already uses `feat:`/`chore:`/etc.).
+- **`CHANGELOG.md`** in [Keep a Changelog](https://keepachangelog.com) format, SemVer.
+- **Conventional Commits**.
 - GoReleaser generates **grouped release notes** from commits between tags
-  (features / fixes / others); the `Unreleased` section of `CHANGELOG.md` is
-  promoted on each release.
+  (features / fixes / others); the `Unreleased` section is promoted on release.
 
 ## 13. Testing
 
@@ -275,32 +267,32 @@ suppressions.
 - **Engine tests:** discovery, ignore globs, config precedence, inline
   suppression (including unused-suppression warnings), exit codes.
 - **Idempotence test:** `fmt(fmt(x)) == fmt(x)` across the corpus.
-- Run the real `srb.guide` `content/` + `data/` as a smoke corpus in CI.
+- A representative Hugo `content/` + `data/` corpus as a smoke test in CI.
 
 ## 14. Phasing
 
 - **Phase 1 (MVP):** format-agnostic core; markdown + data-file linting; the two
-  ported rules; `lint` / `--fix` / `fmt`; `.doclint.yaml`; human + JSON output;
-  inline suppression; GoReleaser + CHANGELOG; golden tests; `srb.guide` wired in.
+  example rules (`details-blank-line` + declarative frontmatter); `lint` /
+  `--fix` / `fmt`; `.doclint.yaml`; human + JSON output; inline suppression;
+  GoReleaser + CHANGELOG; golden tests.
 - **Phase 2:** LSP server (`pkg/lsp`, thin engine adapter reading the same
   config); SARIF + GitHub-annotation reporters; baseline files; optional Docker
   image; richer built-in rules (shortcode/link/asset).
 
 ## 15. Repo conventions
 
-Mirror `openserbia/go-template`: `cmd/` + `pkg/` layout, Devbox + Taskfile,
-`.golangci.yml`, Dockerfile (Phase 2), `.github/` (CI, dependabot). Drop the
-DB/migration pieces a linter doesn't need.
+Mirror the org's Go module conventions: `cmd/` + `pkg/` layout, Devbox +
+Taskfile, the shared `.golangci.yml`, vendored deps. Drop the DB/migration
+pieces a linter doesn't need.
 
 ## 16. Risks & open questions
 
 - **"Universal linter framework" trap** — mitigated by shipping markdown-only
   semantics first; formats/LSP are additive packages behind stable seams.
 - **Goldmark vs Hugo extensions** — Hugo enables specific Goldmark extensions
-  (e.g. typographer, attributes). The markdown parser must mirror `srb.guide`'s
-  `config/_default/markup` settings so the AST matches production. (Resolve when
-  building `pkg/format/markdown`.)
+  (e.g. typographer, attributes). The markdown parser must mirror the target
+  site's `markup` settings so the AST matches production. (Resolve when building
+  `pkg/document` markdown parsing.)
 - **`go install` from a private repo** — needs `GOPRIVATE`/auth on the runner;
   released-binary download is the fallback if that's friction.
-- **Repo visibility** — defaulting **private** (matches `scraper-lab`); trivial
-  to open-source later.
+- **Repo visibility** — defaulting **private**; trivial to open-source later.
