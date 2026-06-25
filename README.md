@@ -1,7 +1,129 @@
 # doclint
 
-A fast, single-binary linter, autofixer and formatter for a Hugo site's
-markdown content and data files, with built-in and user-defined custom rules.
-Runs as a pre-deploy gate, like `golangci-lint` for Go.
+A fast, single-binary linter, autofixer, and formatter for a Hugo site's
+**markdown content** and **data files**, driven by built-in and user-defined
+custom rules. Run it as a pre-deploy gate — like `golangci-lint`, but for content.
 
-Status: under construction. See `docs/superpowers/plans/` for the build plan.
+## Why
+
+Hugo sites accumulate ad-hoc content checks (a script for a rendering gotcha,
+another for frontmatter/SEO). `doclint` replaces them with one tool: simple
+rules are declared in YAML (no recompile), complex rules are built in, and
+everything shares one config, one autofix engine, and one output format.
+
+## Install
+
+```bash
+go install github.com/openserbia/doclint/cmd/doclint@latest
+```
+
+Or download a prebuilt binary from the Releases page.
+
+## Usage
+
+Point `doclint` at the directories you want linted (typically `content` and
+`data`):
+
+```bash
+# Report findings (no changes); non-zero exit on errors
+doclint lint content data
+
+# Apply safe autofixes in place
+doclint lint --fix content
+
+# Also apply unsafe fixes (may change meaning)
+doclint lint --fix --unsafe-fixes content
+
+# List files whose fixes would change them, without writing
+doclint lint --diff content
+
+# Normalize markdown spacing (idempotent)
+doclint fmt content
+doclint fmt --check content   # CI gate: non-zero if any file would change
+
+# Machine-readable output
+doclint lint --format json content
+
+# Discover rules
+doclint list
+doclint explain details-blank-line
+```
+
+`doclint` walks every file under the paths you pass, so scope it to your content
+and data directories (or use `ignore` globs in config).
+
+## Rules
+
+### Built-in
+
+- **details-blank-line** — a collapsible block written as raw HTML needs a blank
+  line after the closing summary tag, or the parser (the same one Hugo uses)
+  swallows the inner markdown as raw HTML and it never renders. `doclint` flags
+  this and inserts the blank line (a safe fix). Flagged vs. fixed:
+
+  ```markdown
+  <details><summary>More</summary>
+  - this list will NOT render
+  ```
+
+  ```markdown
+  <details><summary>More</summary>
+
+  - this list renders correctly
+  ```
+
+### Custom (declarative)
+
+Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,
+`length`, `not_equal`, `match`, `deny` — scoped by a path `glob`, optionally
+skipping drafts.
+
+## Configuration
+
+`doclint` discovers `.doclint.yaml` by walking up from the working directory:
+
+```yaml
+default: standard            # all | standard | none
+settings:
+  details-blank-line:
+    severity: error
+ignore:
+  - "node_modules/**"
+custom:
+  - id: frontmatter-description-required
+    type: required
+    glob: "content/**/*.md"
+    field: description
+    skip_drafts: true
+    severity: error
+  - id: seo-description-length
+    type: length
+    glob: "content/**/*.md"
+    field: description
+    min: 120
+    max: 160
+    severity: warning
+```
+
+### Inline suppression
+
+```markdown
+<!-- doclint-disable-next-line details-blank-line -->
+```
+
+Unused suppressions are reported as warnings.
+
+## Autofix safety
+
+Fixes are tagged **safe** or **unsafe** (inspired by Ruff). `lint --fix` applies
+safe fixes only; `--unsafe-fixes` opts into the rest. Plain `lint` never mutates.
+
+## Output and exit codes
+
+`--format human` (default, colored) or `--format json`. Exit `0` when clean, `1`
+on error-severity findings (warnings are advisory; use `--max-warnings N` to
+tighten), `2` on a configuration or internal error.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
