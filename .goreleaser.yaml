@@ -27,11 +27,11 @@ checksum:
 changelog:
   use: github
   sort: asc
-  # Abbreviate the commit hash; GitHub auto-links a short SHA in release notes.
+  # Abbreviate the commit hash to 7 chars (used in both the link text and URL).
   abbrev: 7
-  # Render each entry as `<short-sha> <subject> by @author` — GitHub turns both
-  # the short SHA and the @login into clickable links (no full hash or raw email).
-  format: "{{ .SHA }} {{ .Message }}{{ with .Logins }} by {{ . | englishJoin }}{{ end }}"
+  # Render each entry as `[short-sha](commit-url) <subject> by @author` — an
+  # explicit markdown link on the SHA, plus the auto-linked @login.
+  format: "[{{ .SHA }}](https://github.com/openserbia/doclint/commit/{{ .SHA }}) {{ .Message }}{{ with .Logins }} by {{ . | englishJoin }}{{ end }}"
   groups:
     - title: Features
       regexp: '^.*?feat(\(.+\))??!?:.+$'
