@@ -13,6 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Built-in `details-blank-line` rule with a safe autofix.
 - Built-in `table-column-count` rule: flags GFM table rows whose column count differs from the header.
 - Built-in `no-missing-space-atx` rule (markdownlint MD018): flags a glued `#Heading` (no space after the hashes) that CommonMark/Goldmark renders as literal text, with a safe one-space autofix; `fmt` applies it too.
+- Built-in `heading-start-left` rule (markdownlint MD023): flags an ATX heading indented from the left margin (1-3 spaces cosmetic, 4+ demotes it to an indented code block and loses the heading), with a safe dedent autofix that `fmt` applies too; the fix is withheld when the heading is nested in a list item (dedenting would de-nest it).
 - `fmt` aligns well-formed GFM table columns (shared per-column widths, preserved alignment colons); malformed tables are left untouched.
 - Declarative custom rules in `.doclint.yaml`: `required`, `length`, `not_equal`, `match`, `deny`.
 - Markdown (frontmatter) and data-file (YAML/TOML/JSON) linting.

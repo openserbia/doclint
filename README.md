@@ -93,6 +93,22 @@ and data directories (or use `ignore` globs in config).
   # Heading
   ```
 
+- **heading-start-left** (markdownlint MD023) — an ATX heading should start at
+  the left margin. 1-3 leading spaces are merely cosmetic but still flagged; 4+
+  leading spaces turn the line into an indented code block, so the heading is
+  lost entirely. `doclint` flags this (a warning) and dedents the heading back to
+  column 1 (a safe fix); `fmt` applies it too. The fix is withheld when the
+  heading is structurally nested inside a list item, because dedenting would
+  de-nest it. Flagged vs. fixed:
+
+  ```markdown
+    ## Indented heading
+  ```
+
+  ```markdown
+  ## Indented heading
+  ```
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,

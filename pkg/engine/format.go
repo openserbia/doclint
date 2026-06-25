@@ -57,11 +57,15 @@ func Format(doc *document.Document) []byte {
 
 // safeStructuralFixes collects the always-safe, content-neutral fixes that fmt
 // applies as part of normalization (intentional engine→builtin coupling, see
-// design spec §8): details-blank-line makes inner markdown render, and
+// design spec §8): details-blank-line makes inner markdown render,
 // no-missing-space-atx inserts the single space that makes a glued "#Heading"
-// render as a heading. Both rules are fence- and frontmatter-aware via Check,
-// and each fix is idempotent, so the resulting pass stays idempotent. The fixes
-// never overlap (different lines / positions), so ApplyEdits accepts them.
+// render as a heading, and heading-start-left dedents an indented ATX heading
+// back to the left margin (only when it is top-level, never when it is nested in
+// a list — the rule withholds the fix there). Every rule is fence- and
+// frontmatter-aware via Check, and each fix is idempotent, so the resulting pass
+// stays idempotent. The fixes never overlap (a glued "#Heading" line and a
+// spaced indented heading line are mutually exclusive, and dedent edits sit at
+// the line start), so ApplyEdits accepts them.
 func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	var fixes []rule.TextEdit
 	collect := func(f rule.Finding) {
@@ -71,5 +75,6 @@ func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	}
 	(builtin.DetailsBlankLine{}).Check(doc, collect)
 	(builtin.NoMissingSpaceATX{}).Check(doc, collect)
+	(builtin.HeadingStartLeft{}).Check(doc, collect)
 	return fixes
 }
