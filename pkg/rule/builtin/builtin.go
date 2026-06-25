@@ -11,4 +11,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(BlanksAroundFences{})
 	reg.Register(BlanksAroundLists{})
 	reg.Register(BlanksAroundHeadings{})
+	reg.Register(FencedCodeLanguage{})
 }

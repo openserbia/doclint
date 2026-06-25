@@ -186,6 +186,21 @@ and data directories (or use `ignore` globs in config).
   Body text
   ```
 
+- **fenced-code-language** (markdownlint MD040) — an opening code fence
+  (` ``` ` or `~~~`) should name a language (` ```go `, ` ```bash `, ` ```json `,
+  …). Without one, Hugo's Chroma highlighter has nothing to highlight and the
+  block renders as an unstyled plain code box — a quality/hygiene issue, not lost
+  content. `doclint` flags this (a warning) with **no autofix**: the correct
+  language cannot be inferred from the code, so add it by hand. Closing
+  delimiters carry no info string and are ignored. Flagged (give it a language —
+  use `text` if none fits):
+
+  ~~~markdown
+  ```
+  echo hello
+  ```
+  ~~~
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,
