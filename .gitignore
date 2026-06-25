@@ -4,4 +4,4 @@
 .devbox/
 .task/
 *.cov
-doclint
+/doclint
