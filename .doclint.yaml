@@ -1,0 +1,40 @@
+# doclint configuration. See: https://github.com/openserbia/doclint
+default: standard            # all | standard | none
+
+# Per-rule overrides.
+settings:
+  details-blank-line:
+    severity: error
+
+# Globs excluded from linting (matched against each file path).
+ignore:
+  - "vendor/**"
+  - "dist/**"
+  - "bin/**"
+  - "node_modules/**"
+  - ".devbox/**"
+  - ".git/**"
+  - "docs/**"
+
+# Declarative custom rules (no recompile needed). Example rules for a Hugo site:
+custom:
+  - id: frontmatter-description-required
+    type: required
+    glob: "content/**/*.md"
+    field: description
+    skip_drafts: true
+    severity: error
+
+  - id: seo-description-length
+    type: length
+    glob: "content/**/*.md"
+    field: description
+    min: 120
+    max: 160
+    severity: warning
+
+  - id: description-not-lead
+    type: not_equal
+    glob: "content/**/*.md"
+    fields: [description, lead]
+    severity: warning
