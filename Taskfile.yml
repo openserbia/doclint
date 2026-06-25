@@ -1,0 +1,48 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  ROOT_REPO: github.com/openserbia
+  PACKAGE_NAME:
+    sh: grep -m 1 "^module" go.mod | awk '{print $2}'
+
+tasks:
+  deps:
+    desc: Download, tidy, vendor deps + govulncheck
+    sources: [go.mod, go.sum]
+    cmds:
+      - go mod download
+      - go mod tidy
+      - go mod vendor
+      - govulncheck ./...
+    generates: [vendor/modules.txt]
+    method: timestamp
+
+  fmt:
+    desc: Format go code
+    deps: [deps]
+    cmds:
+      - gci write -s standard -s default -s "prefix({{.ROOT_REPO}})" -s "prefix({{.PACKAGE_NAME}})" --skip-generated cmd internal pkg
+      - gofumpt -l -w .
+
+  lint:
+    desc: Run go linters
+    deps: [fmt]
+    cmds:
+      - golangci-lint run
+
+  test:
+    desc: Run unit tests
+    deps: [deps]
+    cmds:
+      - go test -mod vendor ./...
+
+  build:
+    desc: Build the doclint binary
+    deps: [deps]
+    cmds:
+      - go build -mod vendor -o bin/doclint ./cmd/doclint
+
+  default:
+    cmds:
+      - task -l
