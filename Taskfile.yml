@@ -22,7 +22,7 @@ tasks:
     desc: Format go code
     deps: [deps]
     cmds:
-      - gci write -s standard -s default -s "prefix({{.ROOT_REPO}})" -s "prefix({{.PACKAGE_NAME}})" --skip-generated cmd internal pkg
+      - gci write -s standard -s default -s "prefix({{.ROOT_REPO}})" -s "prefix({{.PACKAGE_NAME}})" --skip-generated cmd pkg
       - gofumpt -l -w .
 
   lint:
