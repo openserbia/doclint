@@ -3,5 +3,6 @@
 /vendor/
 .devbox/
 .task/
+.idea/
 *.cov
 /doclint
