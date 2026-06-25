@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jetify-com/devbox-install-action@v0.13.0
+        with:
+          enable-cache: true
+      - name: Test
+        run: devbox run -- task test
+      - name: Lint
+        run: devbox run -- task lint
