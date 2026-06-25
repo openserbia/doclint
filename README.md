@@ -109,6 +109,32 @@ and data directories (or use `ignore` globs in config).
   ## Indented heading
   ```
 
+- **blanks-around-fences** (markdownlint MD031) — a fenced code block should have
+  a blank line before its opening ` ``` ` (or `~~~`) and after its closing
+  delimiter. A fence butted directly against a paragraph can fail to be
+  recognized as a code block, so the content renders as prose. `doclint` flags
+  this (a warning) and inserts the missing blank line (a safe fix); `fmt` applies
+  it too. A fence at the very start or end of the file is exempt. Flagged vs.
+  fixed (shown with `~~~` for the surrounding example fence):
+
+  ~~~markdown
+  text
+  ```
+  code
+  ```
+  more
+  ~~~
+
+  ~~~markdown
+  text
+
+  ```
+  code
+  ```
+
+  more
+  ~~~
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,

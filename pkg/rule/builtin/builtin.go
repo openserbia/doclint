@@ -8,4 +8,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(TableColumnCount{})
 	reg.Register(NoMissingSpaceATX{})
 	reg.Register(HeadingStartLeft{})
+	reg.Register(BlanksAroundFences{})
 }

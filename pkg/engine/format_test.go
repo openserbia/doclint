@@ -127,3 +127,44 @@ func TestFormat_LeavesListNestedHeading(t *testing.T) {
 		t.Errorf("list-nested heading changed: got %q want %q", got, in)
 	}
 }
+
+func TestFormat_AddsBlanksAroundFences(t *testing.T) {
+	got := format(t, "before\n```\ncode\n```\nafter\n")
+	want := "before\n\n```\ncode\n```\n\nafter\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_BlanksAroundFencesIdempotent(t *testing.T) {
+	in := "x\n```\ncode\n```\ny\n"
+	once := format(t, in)
+	doc, _ := document.ParseMarkdown("t.md", []byte(once))
+	twice := string(Format(doc))
+	if once != twice {
+		t.Errorf("blanks-around-fences format not idempotent:\n once=%q\ntwice=%q", once, twice)
+	}
+	if want := "x\n\n```\ncode\n```\n\ny\n"; once != want {
+		t.Errorf("got %q, want %q", once, want)
+	}
+}
+
+func TestFormat_BlanksAroundBackToBackFences(t *testing.T) {
+	// A closing delimiter glued to the next opening delimiter gets a single blank
+	// line between them (the double insertion is collapsed by the blank-run pass).
+	got := format(t, "```\na\n```\n```\nb\n```\n")
+	want := "```\na\n```\n\n```\nb\n```\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_PreservesFencedInteriorWhenAddingBlanks(t *testing.T) {
+	// The blank insertion is on the OUTSIDE of the fence; the fenced interior
+	// (including its own blank lines) must be left byte-for-byte intact.
+	got := format(t, "p\n```\n\n\nfenced\n\n\n```\nq\n")
+	want := "p\n\n```\n\n\nfenced\n\n\n```\n\nq\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

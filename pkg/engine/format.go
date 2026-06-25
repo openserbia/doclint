@@ -59,13 +59,17 @@ func Format(doc *document.Document) []byte {
 // applies as part of normalization (intentional engine→builtin coupling, see
 // design spec §8): details-blank-line makes inner markdown render,
 // no-missing-space-atx inserts the single space that makes a glued "#Heading"
-// render as a heading, and heading-start-left dedents an indented ATX heading
+// render as a heading, heading-start-left dedents an indented ATX heading
 // back to the left margin (only when it is top-level, never when it is nested in
-// a list — the rule withholds the fix there). Every rule is fence- and
-// frontmatter-aware via Check, and each fix is idempotent, so the resulting pass
-// stays idempotent. The fixes never overlap (a glued "#Heading" line and a
-// spaced indented heading line are mutually exclusive, and dedent edits sit at
-// the line start), so ApplyEdits accepts them.
+// a list — the rule withholds the fix there), and blanks-around-fences inserts a
+// blank line where a fenced code block is butted against adjacent prose. Every
+// rule is fence- and frontmatter-aware via Check, and each fix is idempotent, so
+// the resulting pass stays idempotent. The fixes never overlap (a glued
+// "#Heading" line and a spaced indented heading line are mutually exclusive,
+// dedent edits sit at the line start, and the blank-insertion edits sit at a
+// fence line's start/end — distinct offsets), so ApplyEdits accepts them. When a
+// closing fence is glued to the next opening fence, the two adjacent insertions
+// produce a double blank that the subsequent blank-run collapse reduces to one.
 func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	var fixes []rule.TextEdit
 	collect := func(f rule.Finding) {
@@ -76,5 +80,6 @@ func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	(builtin.DetailsBlankLine{}).Check(doc, collect)
 	(builtin.NoMissingSpaceATX{}).Check(doc, collect)
 	(builtin.HeadingStartLeft{}).Check(doc, collect)
+	(builtin.BlanksAroundFences{}).Check(doc, collect)
 	return fixes
 }
