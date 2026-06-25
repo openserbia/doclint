@@ -39,3 +39,33 @@ func TestFormat_Idempotent(t *testing.T) {
 		t.Errorf("not idempotent:\n once=%q\ntwice=%q", once, twice)
 	}
 }
+
+func TestFormat_AlignsRaggedTable(t *testing.T) {
+	in := "| name | id |\n|:--|--:|\n| alice | 1 |\n| bob | 100 |\n"
+	want := "" +
+		"| name  | id  |\n" +
+		"| :---- | --: |\n" +
+		"| alice | 1   |\n" +
+		"| bob   | 100 |\n"
+	if got := format(t, in); got != want {
+		t.Errorf("aligned table:\n got=%q\nwant=%q", got, want)
+	}
+}
+
+func TestFormat_TableIdempotent(t *testing.T) {
+	in := "before\n\n| a | bbbb | c |\n|---|:-:|--:|\n| 1 | 2 | 3 |\n\nafter\n"
+	once := format(t, in)
+	doc, _ := document.ParseMarkdown("t.md", []byte(once))
+	twice := string(Format(doc))
+	if once != twice {
+		t.Errorf("table format not idempotent:\n once=%q\ntwice=%q", once, twice)
+	}
+}
+
+func TestFormat_LeavesMalformedTable(t *testing.T) {
+	// A row with the wrong cell count makes the table malformed; leave it as-is.
+	in := "| a | b | c |\n|---|---|---|\n| x |\n"
+	if got := format(t, in); got != in {
+		t.Errorf("malformed table changed:\n got=%q\nwant=%q", got, in)
+	}
+}

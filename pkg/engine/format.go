@@ -15,9 +15,9 @@ const maxConsecutiveBlanks = 1
 
 // Format applies the deterministic, idempotent whitespace pass: it collapses
 // 3+ consecutive blank lines (outside fenced code) to one, ensures a single
-// trailing newline, and applies the always-safe details-blank-line fix.
-// Trailing-whitespace stripping is intentionally omitted (two trailing spaces
-// are a markdown hard line break).
+// trailing newline, applies the always-safe details-blank-line fix, and aligns
+// the columns of well-formed GFM tables. Trailing-whitespace stripping is
+// intentionally omitted (two trailing spaces are a markdown hard line break).
 func Format(doc *document.Document) []byte {
 	// 1. Apply the safe structural fix(es) first, on the raw bytes.
 	// Intentional engine→builtin coupling: fmt always applies the safe
@@ -56,5 +56,8 @@ func Format(doc *document.Document) []byte {
 	// 3. Single trailing newline.
 	out := bytes.TrimRight(b.Bytes(), "\n")
 	out = append(out, '\n')
+
+	// 4. Align well-formed GFM tables (idempotent; malformed tables untouched).
+	out = formatTables(out)
 	return out
 }

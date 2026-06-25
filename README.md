@@ -72,6 +72,12 @@ and data directories (or use `ignore` globs in config).
   - this list renders correctly
   ```
 
+- **table-column-count** — every row of a GFM pipe table must have the same
+  number of columns as its header. A ragged row makes the renderer silently drop
+  or pad cells, so the table no longer says what the author wrote. Reported as an
+  error (no autofix — the intended cell boundaries are ambiguous). `fmt`
+  separately re-aligns the columns of *well-formed* tables.
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,
