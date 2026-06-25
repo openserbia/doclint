@@ -20,6 +20,8 @@ const maxConsecutiveBlanks = 1
 // are a markdown hard line break).
 func Format(doc *document.Document) []byte {
 	// 1. Apply the safe structural fix(es) first, on the raw bytes.
+	// Intentional engine→builtin coupling: fmt always applies the safe
+	// details-blank-line fix as part of normalization (see design spec §8).
 	var fixes []rule.TextEdit
 	(builtin.DetailsBlankLine{}).Check(doc, func(f rule.Finding) {
 		if f.Safety == rule.Safe {

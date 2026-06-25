@@ -84,6 +84,8 @@ skipping drafts.
 
 ```yaml
 default: standard            # all | standard | none
+enable: []                   # force-enable specific rules by name
+disable: []                  # force-disable specific rules by name
 settings:
   details-blank-line:
     severity: error
@@ -104,6 +106,8 @@ custom:
     max: 160
     severity: warning
 ```
+
+`enable` force-enables specific rules by name regardless of `default`; `disable` force-disables them.
 
 ### Inline suppression
 

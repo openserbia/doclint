@@ -25,6 +25,7 @@ func (j JSON) Report(w io.Writer, findings []rule.Finding) error {
 		out = append(out, wire{f.Rule, f.Path, f.Line, f.Col, f.Message, f.Severity.String()})
 	}
 	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
 }
