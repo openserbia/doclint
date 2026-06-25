@@ -12,4 +12,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(BlanksAroundLists{})
 	reg.Register(BlanksAroundHeadings{})
 	reg.Register(FencedCodeLanguage{})
+	reg.Register(NoAltText{})
 }

@@ -201,6 +201,20 @@ and data directories (or use `ignore` globs in config).
   ```
   ~~~
 
+- **no-alt-text** (markdownlint MD045) — an inline image whose alt text is empty
+  or only whitespace (`![](url)` or `![ ](url)`) should instead describe the
+  image. The image still renders, but a screen reader announces nothing for it
+  and search engines lose the textual signal the alt attribute carries — a real
+  accessibility and SEO defect on a public multilingual content site. `doclint`
+  flags this (a warning) at the `!`, with **no autofix**: meaningful alt text
+  must be authored by a human in the page's language. Image syntax inside an
+  inline code span (`` `![](url)` ``) or a fenced code block is illustrative,
+  renders no image, and is ignored. Flagged (add a description):
+
+  ```markdown
+  ![](/images/skadarlija.jpg)
+  ```
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,
