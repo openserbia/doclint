@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-25
+
+### Fixed
+- `blanks-around-lists` no longer reports a missing blank line when the line directly above or below the list is a Hugo shortcode (`{{< … >}}` / `{{% … %}}`) or a CommonMark attribute block (`{.class}`). Those are Goldmark block constructs — a shortcode container edge or an attribute applied to the list — not prose that swallows or is absorbed by the list. markdownlint, parsing plain CommonMark, over-reports these boundaries; doclint now correctly ignores them (e.g. on a Hugo content corpus this cut the rule's findings by ~65%).
+
 ## [0.2.0] - 2026-06-25
 
 ### Added

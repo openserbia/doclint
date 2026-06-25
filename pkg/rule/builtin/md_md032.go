@@ -27,6 +27,15 @@ var hugoShortcodeLineRe = regexp.MustCompile(`^\s+\{\{[<%]`)
 // hugoShortcodeLineRe: only indented attribute blocks are list continuations.
 var attrBlockLineRe = regexp.MustCompile(`^\s+\{[.#a-zA-Z]`)
 
+// blockConstructRe matches a Hugo shortcode ({{< … >}} / {{% … %}}) or a
+// standalone CommonMark attribute block ({.class} / {#id} / {key=val}) at ANY
+// indent, including 0. At a list boundary such a line is a Goldmark block
+// construct — a shortcode container edge, or an attribute applied to the list —
+// not a prose paragraph that swallows the list or is absorbed by its last item,
+// so it must not trigger a blanks-around-lists finding. (markdownlint, being
+// Hugo-blind, over-reports these boundaries; doclint should not.)
+var blockConstructRe = regexp.MustCompile(`^\s*(\{\{[<%]|\{[.#a-zA-Z][^}]*\}\s*$)`)
+
 // BlanksAroundLists flags a list block that is not preceded and followed by a
 // blank line (markdownlint MD032). A list line butted directly under a paragraph
 // can be swallowed as a lazy paragraph continuation (the list never renders), and
@@ -177,6 +186,11 @@ func (r BlanksAroundLists) checkBefore(doc *document.Document, lines []document.
 	if _, ok := listItemContent(prev.Text); ok {
 		return
 	}
+	// A Hugo shortcode / attribute block above the list is a block-construct
+	// edge, not a prose paragraph that swallows the list.
+	if blockConstructRe.MatchString(prev.Text) {
+		return
+	}
 	ln := lines[s]
 	report(r.finding(doc, ln, "missing blank line before list",
 		rule.TextEdit{Start: ln.Start, End: ln.Start, NewText: "\n"}))
@@ -188,6 +202,11 @@ func (r BlanksAroundLists) checkBefore(doc *document.Document, lines []document.
 // does not belong to the list, so it is a paragraph that the final item absorbs.
 func (r BlanksAroundLists) checkAfter(doc *document.Document, lines []document.Line, e int, report func(rule.Finding)) {
 	if e+1 >= len(lines) || isBlank(lines[e+1].Text) {
+		return
+	}
+	// A Hugo shortcode / attribute block after the list is a block-construct
+	// edge, not a prose paragraph absorbed by the final item.
+	if blockConstructRe.MatchString(lines[e+1].Text) {
 		return
 	}
 	ln := lines[e]

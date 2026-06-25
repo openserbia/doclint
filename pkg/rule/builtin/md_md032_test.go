@@ -34,6 +34,25 @@ func applyAll(t *testing.T, raw []byte, fs []rule.Finding) []byte {
 	return out
 }
 
+func TestBlanksAroundLists_IgnoresHugoBoundaries(t *testing.T) {
+	// A list whose neighbour is a Hugo shortcode or attribute-block line is not
+	// flagged: those are Goldmark block constructs (a shortcode container edge or
+	// a list attribute), not prose that swallows or is absorbed by the list.
+	cases := []struct {
+		name string
+		raw  string
+	}{
+		{"shortcode open before list", "{{< details \"X\" >}}\n- item\n- item\n{{< /details >}}\n"},
+		{"shortcode close after list", "text\n\n{{< details >}}\n\n- item\n{{< /details >}}\n"},
+		{"attribute block after list", "- item\n- last\n{.support-inkind}\n"},
+	}
+	for _, c := range cases {
+		if got := blanksAroundListsFindings(t, []byte(c.raw)); len(got) != 0 {
+			t.Errorf("%s: got %d findings, want 0: %+v", c.name, len(got), got)
+		}
+	}
+}
+
 func TestBlanksAroundLists_Meta(t *testing.T) {
 	m := (builtin.BlanksAroundLists{}).Meta()
 	if m.Name != "blanks-around-lists" {
