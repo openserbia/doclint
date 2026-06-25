@@ -62,6 +62,34 @@ func TestFormat_TableIdempotent(t *testing.T) {
 	}
 }
 
+func TestFormat_FixesMissingSpaceATX(t *testing.T) {
+	got := format(t, "#Heading\n\ntext\n")
+	want := "# Heading\n\ntext\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_MissingSpaceATXIdempotent(t *testing.T) {
+	in := "###Glued\n\nbody with a # in prose\n"
+	once := format(t, in)
+	doc, _ := document.ParseMarkdown("t.md", []byte(once))
+	twice := string(Format(doc))
+	if once != twice {
+		t.Errorf("atx format not idempotent:\n once=%q\ntwice=%q", once, twice)
+	}
+	if want := "### Glued\n\nbody with a # in prose\n"; once != want {
+		t.Errorf("got %q, want %q", once, want)
+	}
+}
+
+func TestFormat_LeavesFencedHashLine(t *testing.T) {
+	in := "```\n#Heading\n```\n"
+	if got := format(t, in); got != in {
+		t.Errorf("fenced hash line changed: got %q want %q", got, in)
+	}
+}
+
 func TestFormat_LeavesMalformedTable(t *testing.T) {
 	// A row with the wrong cell count makes the table malformed; leave it as-is.
 	in := "| a | b | c |\n|---|---|---|\n| x |\n"

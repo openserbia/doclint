@@ -78,6 +78,21 @@ and data directories (or use `ignore` globs in config).
   error (no autofix — the intended cell boundaries are ambiguous). `fmt`
   separately re-aligns the columns of *well-formed* tables.
 
+- **no-missing-space-atx** (markdownlint MD018) — an ATX heading needs a space
+  after its `#` run; `#Heading` (no space) is not a heading in CommonMark/Goldmark
+  and renders as literal text, so the heading is silently lost. `doclint` flags
+  this and inserts a single space (a safe fix); `fmt` applies it too. A digit
+  right after the hashes (`#1`) is left alone as a likely hashtag. Flagged vs.
+  fixed:
+
+  ```markdown
+  #Heading
+  ```
+
+  ```markdown
+  # Heading
+  ```
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,

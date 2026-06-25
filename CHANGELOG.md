@@ -12,6 +12,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `fmt` command: idempotent, fence-aware markdown spacing normalizer (`--check`/`--diff`).
 - Built-in `details-blank-line` rule with a safe autofix.
 - Built-in `table-column-count` rule: flags GFM table rows whose column count differs from the header.
+- Built-in `no-missing-space-atx` rule (markdownlint MD018): flags a glued `#Heading` (no space after the hashes) that CommonMark/Goldmark renders as literal text, with a safe one-space autofix; `fmt` applies it too.
 - `fmt` aligns well-formed GFM table columns (shared per-column widths, preserved alignment colons); malformed tables are left untouched.
 - Declarative custom rules in `.doclint.yaml`: `required`, `length`, `not_equal`, `match`, `deny`.
 - Markdown (frontmatter) and data-file (YAML/TOML/JSON) linting.

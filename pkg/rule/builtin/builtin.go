@@ -6,4 +6,5 @@ import "github.com/openserbia/doclint/pkg/rule"
 func Register(reg *rule.Registry) {
 	reg.Register(DetailsBlankLine{})
 	reg.Register(TableColumnCount{})
+	reg.Register(NoMissingSpaceATX{})
 }
