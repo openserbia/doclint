@@ -27,3 +27,12 @@ func TestSuppress_NextLineAndUnused(t *testing.T) {
 		t.Errorf("unused finding = %+v, want rule=unused-suppression mentioning other-rule", unused[0])
 	}
 }
+
+func TestSuppress_IgnoresDirectiveInFence(t *testing.T) {
+	raw := []byte("```\n<!-- doclint-disable-next-line foo -->\n```\nline4\n")
+	doc, _ := document.ParseMarkdown("t.md", raw)
+	s := NewSuppressor(doc)
+	if len(s.Unused()) != 0 {
+		t.Errorf("directive inside a fenced block must be ignored, got %d unused", len(s.Unused()))
+	}
+}
