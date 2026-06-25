@@ -9,4 +9,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(NoMissingSpaceATX{})
 	reg.Register(HeadingStartLeft{})
 	reg.Register(BlanksAroundFences{})
+	reg.Register(BlanksAroundLists{})
 }

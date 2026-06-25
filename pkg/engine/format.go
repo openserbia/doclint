@@ -70,6 +70,13 @@ func Format(doc *document.Document) []byte {
 // fence line's start/end — distinct offsets), so ApplyEdits accepts them. When a
 // closing fence is glued to the next opening fence, the two adjacent insertions
 // produce a double blank that the subsequent blank-run collapse reduces to one.
+//
+// blanks-around-lists adds the same kind of blank-insertion where a list block is
+// butted against an adjacent paragraph (so the list is not swallowed as a lazy
+// continuation). Its edits sit at a list-edge line's start/end, distinct from the
+// fence/heading offsets; when it and blanks-around-fences both insert at a
+// list↔fence boundary the doubled blank is collapsed by the blank-run pass too. It
+// is frontmatter-aware (it skips frontmatter so a YAML list is never touched).
 func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	var fixes []rule.TextEdit
 	collect := func(f rule.Finding) {
@@ -81,5 +88,6 @@ func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	(builtin.NoMissingSpaceATX{}).Check(doc, collect)
 	(builtin.HeadingStartLeft{}).Check(doc, collect)
 	(builtin.BlanksAroundFences{}).Check(doc, collect)
+	(builtin.BlanksAroundLists{}).Check(doc, collect)
 	return fixes
 }

@@ -135,6 +135,30 @@ and data directories (or use `ignore` globs in config).
   more
   ~~~
 
+- **blanks-around-lists** (markdownlint MD032) — a list block should have a blank
+  line before its first item and after its last item. A list line butted directly
+  under a paragraph is folded into it as a lazy continuation (so no list renders),
+  and a paragraph butted directly under the last item is absorbed into that item.
+  `doclint` flags this (a warning) and inserts the missing blank line (a safe fix);
+  `fmt` applies it too. Fenced code and frontmatter are skipped, and a list at the
+  very start or end of the file is exempt. Flagged vs. fixed:
+
+  ```markdown
+  Intro paragraph
+  - first item
+  - second item
+  Outro paragraph
+  ```
+
+  ```markdown
+  Intro paragraph
+
+  - first item
+  - second item
+
+  Outro paragraph
+  ```
+
 ### Custom (declarative)
 
 Define rules in `.doclint.yaml` with no recompile. Supported types: `required`,

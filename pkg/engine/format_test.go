@@ -159,6 +159,27 @@ func TestFormat_BlanksAroundBackToBackFences(t *testing.T) {
 	}
 }
 
+func TestFormat_AddsBlanksAroundLists(t *testing.T) {
+	got := format(t, "before\n- item\nafter\n")
+	want := "before\n\n- item\n\nafter\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormat_BlanksAroundListsIdempotent(t *testing.T) {
+	in := "intro\n1. one\n2. two\noutro\n"
+	once := format(t, in)
+	doc, _ := document.ParseMarkdown("t.md", []byte(once))
+	twice := string(Format(doc))
+	if once != twice {
+		t.Errorf("blanks-around-lists format not idempotent:\n once=%q\ntwice=%q", once, twice)
+	}
+	if want := "intro\n\n1. one\n2. two\n\noutro\n"; once != want {
+		t.Errorf("got %q, want %q", once, want)
+	}
+}
+
 func TestFormat_PreservesFencedInteriorWhenAddingBlanks(t *testing.T) {
 	// The blank insertion is on the OUTSIDE of the fence; the fenced interior
 	// (including its own blank lines) must be left byte-for-byte intact.

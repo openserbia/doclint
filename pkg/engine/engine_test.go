@@ -29,8 +29,19 @@ func TestEngine_RunFindsAndFixes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if len(res.Findings) != 1 || res.Findings[0].Rule != "details-blank-line" {
+	// The fixture lists "- item" directly under </summary>, so two rules fire on
+	// the same gap: details-blank-line (error) and blanks-around-lists (warning),
+	// the latter because the list is butted against the preceding line. Their fixes
+	// both insert the same separating blank.
+	byRule := map[string]rule.Finding{}
+	for _, f := range res.Findings {
+		byRule[f.Rule] = f
+	}
+	if _, ok := byRule["details-blank-line"]; !ok || len(res.Findings) != 2 {
 		t.Fatalf("findings = %+v", res.Findings)
+	}
+	if _, ok := byRule["blanks-around-lists"]; !ok {
+		t.Fatalf("expected blanks-around-lists finding, got %+v", res.Findings)
 	}
 	if res.ExitCode() != 1 {
 		t.Errorf("exit = %d, want 1 (one error)", res.ExitCode())
