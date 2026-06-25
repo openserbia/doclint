@@ -27,6 +27,11 @@ checksum:
 changelog:
   use: github
   sort: asc
+  # Abbreviate the commit hash; GitHub auto-links a short SHA in release notes.
+  abbrev: 7
+  # Render each entry as `<short-sha> <subject> by @author` — GitHub turns both
+  # the short SHA and the @login into clickable links (no full hash or raw email).
+  format: "{{ .SHA }} {{ .Message }}{{ with .Logins }} by {{ . | englishJoin }}{{ end }}"
   groups:
     - title: Features
       regexp: '^.*?feat(\(.+\))??!?:.+$'
