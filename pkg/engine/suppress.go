@@ -26,6 +26,9 @@ type Suppressor struct {
 func NewSuppressor(doc *document.Document) *Suppressor {
 	s := &Suppressor{}
 	for _, ln := range doc.Lines {
+		if ln.InFence {
+			continue
+		}
 		m := directiveRe.FindStringSubmatch(ln.Text)
 		if m == nil {
 			continue
