@@ -198,3 +198,33 @@ func TestBlanksAroundLists_FixIsIdempotent(t *testing.T) {
 		t.Fatalf("fixed text still flagged: %d findings", len(again))
 	}
 }
+
+func TestBlanksAroundLists_HugoShortcodeInOrderedList(t *testing.T) {
+	// Ordered list whose items each wrap a Hugo shortcode block and an
+	// indented sublist. The closing {{< /details >}} tags are indented 2
+	// spaces even though the "1. " content column is 3. They must be treated
+	// as list continuations so the entire block is detected as ONE region with
+	// exactly two outer-edge findings (before item 1 / after item 3) and ZERO
+	// internal false-positive findings.
+	raw := []byte(
+		"intro\n" +
+			"1. {{< details \"A\" >}}\n" +
+			"  - bullet a\n" +
+			"  {{< /details >}}\n" +
+			"2. {{< details \"B\" >}}\n" +
+			"  - bullet b\n" +
+			"  {{< /details >}}\n" +
+			"3. plain item\n" +
+			"outro\n",
+	)
+	got := blanksAroundListsFindings(t, raw)
+	if len(got) != 2 {
+		t.Fatalf("got %d findings (want 2 outer-edge only):\n%v", len(got), got)
+	}
+	if !strings.Contains(got[0].Message, "before") {
+		t.Errorf("first finding = %q, want it to mention before", got[0].Message)
+	}
+	if !strings.Contains(got[1].Message, "after") {
+		t.Errorf("second finding = %q, want it to mention after", got[1].Message)
+	}
+}

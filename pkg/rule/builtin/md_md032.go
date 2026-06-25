@@ -15,6 +15,18 @@ import (
 // so a "- x" written inside a code fence never registers as a list item.
 var listItemRe = regexp.MustCompile(`^ {0,3}([-*+]|\d{1,9}[.)])([ \t]|$)`)
 
+// hugoShortcodeLineRe matches a Hugo shortcode line that has at least one
+// leading space: {{< … >}} or {{% … %}}, including closing variants such as
+// {{< /details >}}.  The leading-whitespace requirement is intentional: an
+// unindented top-level shortcode (indent = 0) must never be mistaken for a
+// list continuation.
+var hugoShortcodeLineRe = regexp.MustCompile(`^\s+\{\{[<%]`)
+
+// attrBlockLineRe matches a CommonMark attribute-block line with at least one
+// leading space, e.g. "  {.class #id}" or "  {key=val}".  Same rationale as
+// hugoShortcodeLineRe: only indented attribute blocks are list continuations.
+var attrBlockLineRe = regexp.MustCompile(`^\s+\{[.#a-zA-Z]`)
+
 // BlanksAroundLists flags a list block that is not preceded and followed by a
 // blank line (markdownlint MD032). A list line butted directly under a paragraph
 // can be swallowed as a lazy paragraph continuation (the list never renders), and
@@ -128,13 +140,27 @@ func interiorBlank(lines []document.Line, j, ci int) bool {
 // items' content begins at column ci: a (possibly nested) list-item line, or a
 // line indented to at least ci (an item continuation, including indented fenced
 // content). A fenced line is never read as a new list item.
+//
+// Hugo shortcode lines ({{< … >}} / {{% … %}}) and CommonMark attribute-block
+// lines ({.class} / {#id}) that carry any leading whitespace are also accepted
+// as continuations even when their indent falls below ci.  This is necessary
+// because a closing shortcode such as "  {{< /details >}}" inside a "1. " item
+// is indented only 2 spaces while the content column (ci) is 3; without this
+// special case the region would split at every closing tag and produce a flood
+// of false-positive boundary findings.
 func inList(ln document.Line, ci int) bool {
 	if !ln.InFence {
 		if _, ok := listItemContent(ln.Text); ok {
 			return true
 		}
 	}
-	return leadingWhitespace(ln.Text) >= ci
+	indent := leadingWhitespace(ln.Text)
+	if indent >= ci {
+		return true
+	}
+	// Indented Hugo shortcode / attribute-block lines count as continuations
+	// even when their byte-level indent is less than ci.
+	return indent > 0 && (hugoShortcodeLineRe.MatchString(ln.Text) || attrBlockLineRe.MatchString(ln.Text))
 }
 
 // checkBefore reports a missing blank line before the region whose first item is
