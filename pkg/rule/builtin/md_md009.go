@@ -29,23 +29,22 @@ type NoTrailingSpaces struct{}
 func (NoTrailingSpaces) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "no-trailing-spaces",
-		Description: "flag stray trailing spaces while preserving the two-space hard line break",
+		Description: "remove stray trailing spaces while preserving the two-space hard line break",
 		Detail: "Trailing spaces at the end of a line are invisible and usually " +
 			"accidental. CommonMark gives exactly two trailing spaces a single " +
 			"meaning — a hard line break (<br>) — so this rule never flags a " +
-			"two-space run; that is intentional formatting. It does flag a single " +
-			"trailing space (an invisible stray that renders as nothing) and a run " +
-			"of three or more (which the renderer collapses back to a two-space " +
-			"break, making the extra spaces meaningless noise). A whitespace-only " +
-			"line is flagged for any trailing spaces, since with no preceding " +
-			"content there is nothing a hard break could attach to. No automatic " +
-			"fix is offered: the fmt pass refuses to strip trailing whitespace " +
-			"because a blanket trim would silently delete the two-space hard break, " +
-			"so the line is surfaced for a human to fix. Lines inside a fenced code " +
-			"block are significant content and are ignored.",
+			"two-space run; that is intentional formatting. A single trailing space " +
+			"(an invisible stray that renders as nothing) and a whitespace-only line " +
+			"(no preceding content for a break to attach to) are unambiguous, so each " +
+			"carries a safe autofix that strips it — and because the fix is targeted, " +
+			"it never touches the two-space hard break. A run of three or more is " +
+			"flagged WITHOUT a fix: the renderer collapses it back to a two-space " +
+			"break, so whether the author meant a (sloppy) break or stray spaces is " +
+			"ambiguous and a human should decide. Lines inside a fenced code block " +
+			"are significant content and are ignored.",
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
-		Safety:   rule.NoFix,
+		Safety:   rule.Safe,
 	}
 }
 
@@ -61,16 +60,23 @@ func (r NoTrailingSpaces) Check(doc *document.Document, report func(rule.Finding
 		}
 		switch {
 		case strings.TrimSpace(t) == "":
+			// Whitespace-only line: clear it entirely (safe — a blank line renders
+			// the same, and nothing here can be a hard break).
 			report(r.finding(doc, ln, n, "whitespace-only line has "+
-				countPhrase(n)+"; remove them (a blank line should be empty)"))
+				countPhrase(n)+"; remove them (a blank line should be empty)",
+				rule.Safe, rule.TextEdit{Start: ln.Start, End: ln.End, NewText: ""}))
 		case n == hardBreakSpaces:
 			// Intentional hard line break (<br>); never flag, never edit.
 		case n < hardBreakSpaces:
+			// A single stray space — unambiguous (one space is never a break), so
+			// strip it with a safe fix.
 			report(r.finding(doc, ln, n,
-				"line ends in a single stray trailing space; it renders as nothing — remove it"))
-		default: // n >= 3
+				"line ends in a single stray trailing space; it renders as nothing — remove it",
+				rule.Safe, rule.TextEdit{Start: ln.End - n, End: ln.End, NewText: ""}))
+		default: // n >= 3: the renderer turns it into a break — ambiguous, flag only.
 			report(r.finding(doc, ln, n, "line ends in "+countPhrase(n)+
-				"; the renderer collapses them to a 2-space hard break, so the extras are likely unintended"))
+				"; the renderer collapses them to a 2-space hard break, so the extras are likely unintended — fix by hand",
+				rule.NoFix))
 		}
 	}
 }
@@ -84,8 +90,9 @@ func countPhrase(n int) string {
 	return strconv.Itoa(n) + " trailing spaces"
 }
 
-// finding builds the NoFix Warning at the first trailing space (1-based column).
-func (r NoTrailingSpaces) finding(doc *document.Document, ln document.Line, n int, msg string) rule.Finding {
+// finding builds a Warning at the first trailing space (1-based column) with the
+// given fix safety and zero or one strip edit.
+func (r NoTrailingSpaces) finding(doc *document.Document, ln document.Line, n int, msg string, safety rule.FixSafety, fixes ...rule.TextEdit) rule.Finding {
 	return rule.Finding{
 		Rule:     r.Meta().Name,
 		Path:     doc.Path,
@@ -93,6 +100,7 @@ func (r NoTrailingSpaces) finding(doc *document.Document, ln document.Line, n in
 		Col:      len(ln.Text) - n + 1,
 		Message:  msg,
 		Severity: rule.Warning,
-		Safety:   rule.NoFix,
+		Safety:   safety,
+		Fixes:    fixes,
 	}
 }

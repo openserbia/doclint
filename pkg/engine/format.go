@@ -16,8 +16,10 @@ const maxConsecutiveBlanks = 1
 // Format applies the deterministic, idempotent whitespace pass: it collapses
 // 3+ consecutive blank lines (outside fenced code) to one, ensures a single
 // trailing newline, applies the always-safe structural fixes, and aligns the
-// columns of well-formed GFM tables. Trailing-whitespace stripping is
-// intentionally omitted (two trailing spaces are a markdown hard line break).
+// columns of well-formed GFM tables. The structural fixes include
+// no-trailing-spaces' targeted strip of a single stray trailing space and of a
+// whitespace-only line; a deliberate two-space hard line break is never touched
+// (the rule does not flag it) and an ambiguous 3+ run is left for a human.
 func Format(doc *document.Document) []byte {
 	// 1. Apply the safe structural fix(es) first, on the raw bytes.
 	fixes := safeStructuralFixes(doc)
@@ -102,5 +104,6 @@ func safeStructuralFixes(doc *document.Document) []rule.TextEdit {
 	(builtin.BlanksAroundFences{}).Check(doc, collect)
 	(builtin.BlanksAroundLists{}).Check(doc, collect)
 	(builtin.BlanksAroundHeadings{}).Check(doc, collect)
+	(builtin.NoTrailingSpaces{}).Check(doc, collect)
 	return fixes
 }

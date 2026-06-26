@@ -5,9 +5,19 @@ import (
 	"testing"
 
 	"github.com/openserbia/doclint/pkg/document"
+	"github.com/openserbia/doclint/pkg/engine"
 	"github.com/openserbia/doclint/pkg/rule"
 	"github.com/openserbia/doclint/pkg/rule/builtin"
 )
+
+func applyFinding(t *testing.T, raw []byte, f rule.Finding) string {
+	t.Helper()
+	out, err := engine.ApplyEdits(raw, f.Fixes)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	return string(out)
+}
 
 func noTrailingSpacesFindings(t *testing.T, raw []byte) []rule.Finding {
 	t.Helper()
@@ -28,8 +38,8 @@ func TestNoTrailingSpaces_Meta(t *testing.T) {
 	if m.Severity != rule.Warning {
 		t.Errorf("Severity = %v, want Warning", m.Severity)
 	}
-	if m.Safety != rule.NoFix {
-		t.Errorf("Safety = %v, want NoFix", m.Safety)
+	if m.Safety != rule.Safe {
+		t.Errorf("Safety = %v, want Safe", m.Safety)
 	}
 	if !m.AppliesTo(document.Markdown) {
 		t.Error("rule should apply to markdown")
@@ -46,8 +56,11 @@ func TestNoTrailingSpaces_FlagsSingleStraySpace(t *testing.T) {
 	if f.Severity != rule.Warning || f.Line != 1 {
 		t.Errorf("finding = %+v, want Warning at line 1", f)
 	}
-	if f.Safety != rule.NoFix || len(f.Fixes) != 0 {
-		t.Errorf("expected no fix, got safety=%v fixes=%d", f.Safety, len(f.Fixes))
+	if f.Safety != rule.Safe || len(f.Fixes) != 1 {
+		t.Fatalf("expected one safe fix, got safety=%v fixes=%d", f.Safety, len(f.Fixes))
+	}
+	if got := applyFinding(t, raw, f); got != "hello\n" {
+		t.Errorf("fix should strip the stray space, got %q", got)
 	}
 	if f.Col != 6 { // "hello" is 5 bytes; the stray space is at col 6
 		t.Errorf("Col = %d, want 6 (first trailing space)", f.Col)
@@ -75,6 +88,9 @@ func TestNoTrailingSpaces_FlagsThreeSpaces(t *testing.T) {
 	}
 	if got[0].Col != 6 {
 		t.Errorf("Col = %d, want 6", got[0].Col)
+	}
+	if got[0].Safety != rule.NoFix || len(got[0].Fixes) != 0 {
+		t.Errorf("3+ spaces should be NoFix (ambiguous), got safety=%v fixes=%d", got[0].Safety, len(got[0].Fixes))
 	}
 }
 
@@ -106,6 +122,12 @@ func TestNoTrailingSpaces_FlagsWhitespaceOnlyLine(t *testing.T) {
 	}
 	if got[0].Line != 2 {
 		t.Errorf("Line = %d, want 2", got[0].Line)
+	}
+	if got[0].Safety != rule.Safe || len(got[0].Fixes) != 1 {
+		t.Fatalf("whitespace-only should carry a safe fix, got safety=%v fixes=%d", got[0].Safety, len(got[0].Fixes))
+	}
+	if g := applyFinding(t, raw, got[0]); g != "text\n\nmore\n" {
+		t.Errorf("fix should clear the whitespace-only line, got %q", g)
 	}
 }
 
