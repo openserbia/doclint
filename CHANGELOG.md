@@ -6,6 +6,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Unified human-readable output across every command to one style: a status headline is ` <glyph> <message>` (`✓` ok / `⚠` warning / `ℹ` info, colored, the same glyphs the lint reporter uses), detail lines (changed files, paths) are indented beneath it, and counts pluralize properly. `lint --fix`/`--diff`, `fmt`, `init`, `cache`, `docs`, and `completion` now all follow it (previously each printed ad-hoc text such as `2 file(s) fixed` or `would reformat <path>`).
+
 ## [0.4.0] - 2026-06-26
 
 ### Added

@@ -19,7 +19,7 @@ const (
 // newDocsCmd generates one reference page per built-in rule from its metadata,
 // so the doc URLs printed by lint/explain resolve to real pages. It is a
 // maintenance command (run in CI / before a release), hence hidden.
-func newDocsCmd() *cobra.Command {
+func newDocsCmd(opts *Options) *cobra.Command {
 	var outDir string
 	cmd := &cobra.Command{
 		Use:    "docs",
@@ -40,8 +40,10 @@ func newDocsCmd() *cobra.Command {
 					return err
 				}
 			}
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "wrote %d rule pages to %s\n", len(rules), outDir)
-			return err
+			u := newUI(cmd.OutOrStdout(), opts.NoColor)
+			u.ok(fmt.Sprintf("wrote %d rule %s", len(rules), plural(len(rules), "page")))
+			u.item(outDir)
+			return u.Err()
 		},
 	}
 	cmd.Flags().StringVar(&outDir, "out", filepath.Join("docs", "rules"), "output directory for the rule pages")

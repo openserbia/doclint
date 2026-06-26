@@ -79,17 +79,22 @@ func runFix(cmd *cobra.Command, eng *engine.Engine, opts *Options, args []string
 	if opts.Quiet {
 		return nil
 	}
+	u := newUI(cmd.OutOrStdout(), opts.NoColor)
 	for _, p := range changed {
-		if _, err := fmt.Fprintln(cmd.OutOrStdout(), p); err != nil {
-			return err
-		}
+		u.item(p)
 	}
-	verb := "fixed"
-	if diff {
-		verb = "would change"
+	n := len(changed)
+	switch {
+	case diff && n == 0:
+		u.ok("no files would change")
+	case diff:
+		u.warn(fmt.Sprintf("%d %s would change", n, plural(n, "file")))
+	case n == 0:
+		u.ok("no files needed fixing")
+	default:
+		u.ok(fmt.Sprintf("fixed %d %s", n, plural(n, "file")))
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "%d file(s) %s\n", len(changed), verb)
-	return err
+	return u.Err()
 }
 
 // runLint runs a read-only lint (memoizing per-file findings unless --no-cache),

@@ -57,7 +57,7 @@ custom:
     severity: error
 `
 
-func newInitCmd() *cobra.Command {
+func newInitCmd(opts *Options) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -74,8 +74,9 @@ func newInitCmd() *cobra.Command {
 			if err := os.WriteFile(path, []byte(defaultConfigTemplate), configMode); err != nil { //nolint:gosec // user-editable project config
 				return err
 			}
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", path)
-			return err
+			u := newUI(cmd.OutOrStdout(), opts.NoColor)
+			u.ok("wrote " + path)
+			return u.Err()
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing .doclint.yaml")

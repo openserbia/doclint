@@ -13,7 +13,7 @@ import (
 	"github.com/openserbia/doclint/pkg/config"
 )
 
-func newCacheCmd() *cobra.Command {
+func newCacheCmd(opts *Options) *cobra.Command {
 	var cacheDir string
 	cmd := &cobra.Command{
 		Use:   "cache",
@@ -33,8 +33,9 @@ func newCacheCmd() *cobra.Command {
 			if err := cache.Open(dir).Clean(); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), "cache cleaned")
-			return err
+			u := newUI(cmd.OutOrStdout(), opts.NoColor)
+			u.ok("cache cleaned")
+			return u.Err()
 		},
 	}
 	status := &cobra.Command{
@@ -47,8 +48,10 @@ func newCacheCmd() *cobra.Command {
 				return errors.New("could not resolve the cache directory; pass --cache-dir")
 			}
 			c := cache.Open(dir)
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "dir:     %s\nentries: %d\n", dir, c.Entries())
-			return err
+			u := newUI(cmd.OutOrStdout(), opts.NoColor)
+			u.info(fmt.Sprintf("cache: %d %s", c.Entries(), plural(c.Entries(), "file")))
+			u.item(dir)
+			return u.Err()
 		},
 	}
 	cmd.AddCommand(clean, status)

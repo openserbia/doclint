@@ -39,7 +39,10 @@ func newFmtCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if (check || diff) && changed > 0 {
+			if err := reportFmt(cmd, opts, changed, check, diff); err != nil {
+				return err
+			}
+			if (check || diff) && len(changed) > 0 {
 				os.Exit(1)
 			}
 			return nil
@@ -50,46 +53,70 @@ func newFmtCmd(opts *Options) *cobra.Command {
 	return cmd
 }
 
-func processFiles(files []string, check, diff bool, w io.Writer) (int, error) {
-	changed := 0
+func processFiles(files []string, check, diff bool, w io.Writer) ([]string, error) {
+	var changed []string
 	for _, p := range files {
-		n, err := processFile(p, check, diff, w)
+		ok, err := processFile(p, check, diff, w)
 		if err != nil {
 			return changed, err
 		}
-		changed += n
+		if ok {
+			changed = append(changed, p)
+		}
 	}
 	return changed, nil
 }
 
-func processFile(p string, check, diff bool, w io.Writer) (int, error) {
+func processFile(p string, check, diff bool, w io.Writer) (bool, error) {
 	raw, err := os.ReadFile(p) //nolint:gosec // discovered path
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 	doc, err := document.ParseMarkdown(p, raw)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 	out := engine.Format(doc)
 	if bytes.Equal(out, raw) {
-		return 0, nil
+		return false, nil
 	}
-	if err := writeFmtOutput(p, raw, out, check, diff, w); err != nil {
-		return 0, err
-	}
-	return 1, nil
-}
-
-func writeFmtOutput(p string, raw, out []byte, check, diff bool, w io.Writer) error {
 	switch {
 	case diff:
-		_, err := fmt.Fprint(w, engine.UnifiedDiff(p, raw, out))
-		return err
+		if _, err := fmt.Fprint(w, engine.UnifiedDiff(p, raw, out)); err != nil {
+			return false, err
+		}
 	case check:
-		_, err := fmt.Fprintf(w, "would reformat %s\n", p)
-		return err
+		// the changed file is listed by reportFmt
 	default:
-		return os.WriteFile(p, out, fileMode) //nolint:gosec // discovered path
+		if err := os.WriteFile(p, out, fileMode); err != nil { //nolint:gosec // discovered path
+			return false, err
+		}
 	}
+	return true, nil
+}
+
+// reportFmt prints the fmt summary in doclint's common style: under --check each
+// changed file is listed, and every mode ends with a status headline.
+func reportFmt(cmd *cobra.Command, opts *Options, changed []string, check, diff bool) error {
+	if opts.Quiet {
+		return nil
+	}
+	u := newUI(cmd.OutOrStdout(), opts.NoColor)
+	n := len(changed)
+	if check {
+		for _, p := range changed {
+			u.item(p)
+		}
+	}
+	switch {
+	case (check || diff) && n == 0:
+		u.ok("already formatted")
+	case check || diff:
+		u.warn(fmt.Sprintf("%d %s would change", n, plural(n, "file")))
+	case n == 0:
+		u.ok("already formatted")
+	default:
+		u.ok(fmt.Sprintf("formatted %d %s", n, plural(n, "file")))
+	}
+	return u.Err()
 }

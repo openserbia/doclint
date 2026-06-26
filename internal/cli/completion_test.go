@@ -26,7 +26,7 @@ func TestInstallCompletionDeclineShowsManual(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetIn(strings.NewReader("n\n"))
-	if err := installCompletion(cmd, NewRootCmd("t", "c", "d"), "zsh", false); err != nil {
+	if err := installCompletion(cmd, NewRootCmd("t", "c", "d"), &Options{}, "zsh", false); err != nil {
 		t.Fatalf("installCompletion: %v", err)
 	}
 	if !strings.Contains(out.String(), "source <(doclint completion zsh)") {
@@ -40,7 +40,7 @@ func TestInstallCompletionYesWritesFile(t *testing.T) {
 	cmd := &cobra.Command{}
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	if err := installCompletion(cmd, NewRootCmd("t", "c", "d"), "zsh", true); err != nil {
+	if err := installCompletion(cmd, NewRootCmd("t", "c", "d"), &Options{}, "zsh", true); err != nil {
 		t.Fatalf("installCompletion: %v", err)
 	}
 	target := filepath.Join(home, ".zsh", "completions", "_doclint")

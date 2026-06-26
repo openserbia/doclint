@@ -22,7 +22,7 @@ const (
 	shellPowerShell = "powershell"
 )
 
-func newCompletionCmd(root *cobra.Command) *cobra.Command {
+func newCompletionCmd(root *cobra.Command, opts *Options) *cobra.Command {
 	var printOnly, assumeYes bool
 	cmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
@@ -47,7 +47,7 @@ or redirected it prints the raw script instead, so these still work:
 			if printOnly || !term.IsTerminal(int(os.Stdout.Fd())) {
 				return writeCompletion(root, cmd.OutOrStdout(), shell)
 			}
-			return installCompletion(cmd, root, shell, assumeYes)
+			return installCompletion(cmd, root, opts, shell, assumeYes)
 		},
 	}
 	cmd.Flags().BoolVar(&printOnly, "print", false, "print the script to stdout instead of installing")
@@ -85,7 +85,7 @@ func writeCompletion(root *cobra.Command, w io.Writer, shell string) error {
 // installCompletion offers to write the completion script to the conventional
 // location for shell, or prints manual instructions when the user declines or no
 // auto-install path is known (powershell).
-func installCompletion(cmd, root *cobra.Command, shell string, assumeYes bool) error {
+func installCompletion(cmd, root *cobra.Command, opts *Options, shell string, assumeYes bool) error {
 	out := cmd.OutOrStdout()
 	target, activate, ok := completionTarget(shell)
 	if !ok {
@@ -116,8 +116,10 @@ func installCompletion(cmd, root *cobra.Command, shell string, assumeYes bool) e
 	if err := f.Close(); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(out, "\n✓ installed: %s\n\n%s\n", target, activate)
-	return err
+	u := newUI(out, opts.NoColor)
+	u.ok("installed " + target)
+	u.write("\n" + activate + "\n")
+	return u.Err()
 }
 
 // completionTarget returns the conventional install path for shell and the
