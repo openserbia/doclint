@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/openserbia/doclint/actions/workflows/ci.yml/badge.svg)](https://github.com/openserbia/doclint/actions/workflows/ci.yml)
 [![Release](https://github.com/openserbia/doclint/actions/workflows/release.yml/badge.svg)](https://github.com/openserbia/doclint/actions/workflows/release.yml)
+[![codecov](https://codecov.io/gh/openserbia/doclint/branch/main/graph/badge.svg)](https://codecov.io/gh/openserbia/doclint)
 [![Latest release](https://img.shields.io/github/v/release/openserbia/doclint?sort=semver)](https://github.com/openserbia/doclint/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/openserbia/doclint.svg)](https://pkg.go.dev/github.com/openserbia/doclint)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openserbia/doclint)](https://goreportcard.com/report/github.com/openserbia/doclint)

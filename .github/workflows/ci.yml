@@ -16,5 +16,10 @@ jobs:
           enable-cache: true
       - name: Test
         run: devbox run -- task test
+      - name: Publish coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
       - name: Lint
         run: devbox run -- task lint
