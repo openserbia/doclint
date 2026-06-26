@@ -3,7 +3,6 @@ package builtin
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/openserbia/doclint/pkg/document"
 	"github.com/openserbia/doclint/pkg/rule"
@@ -30,13 +29,15 @@ func (ListMarkerIndent) Meta() rule.Meta {
 			"less than that (a common foot-gun is a 2-space body under a single-digit " +
 			"\"1. \" item, which needs 3), CommonMark/Goldmark does not attach it to the " +
 			"item: the nested list escapes, an ordered list splits into single-item " +
-			"lists, and the numbering restarts (1. 1. 1. instead of 1. 2. 3.). The fix " +
-			"re-indents the whole item body to the content column. It is Unsafe (only " +
-			"applied with --unsafe-fixes) because shifting nested content — especially " +
-			"across Hugo shortcodes — can warrant a human's review of the diff.",
+			"lists, and the numbering restarts (1. 1. 1. instead of 1. 2. 3.). No " +
+			"automatic fix is offered: re-indenting a body that is itself " +
+			"inconsistently indented (e.g. a leading paragraph at a different column " +
+			"than the bullets) has no single safe answer — a uniform shift would " +
+			"over-indent the already-correct lines — so the line is surfaced for a " +
+			"human; most editors' reindent does the right thing.",
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
-		Safety:   rule.Unsafe,
+		Safety:   rule.NoFix,
 		Example: rule.Example{
 			Bad: `1. {{< details "Doc" >}}
   - body under-indented (2 spaces under a "1. " item)
@@ -64,7 +65,7 @@ func (r ListMarkerIndent) Check(doc *document.Document, report func(rule.Finding
 		contentCol := markerIndent + len(m[2]) + 1
 		end, base := bodyExtent(lines, i, markerIndent)
 		if base > markerIndent && base < contentCol {
-			r.flag(doc, lines, i, end, contentCol-base, report)
+			r.flag(doc, lines, i, contentCol-base, report)
 		}
 		i = end + 1
 	}
@@ -98,17 +99,10 @@ func bodyExtent(lines []document.Line, i, markerIndent int) (end, base int) {
 	return end, base
 }
 
-// flag reports the under-indented item and a single Unsafe fix that shifts every
-// non-blank body line right by delta, preserving the relative nesting.
-func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, end, delta int, report func(rule.Finding)) {
-	pad := strings.Repeat(" ", delta)
-	var fixes []rule.TextEdit
-	for j := start + 1; j <= end; j++ {
-		if isBlank(lines[j].Text) {
-			continue
-		}
-		fixes = append(fixes, rule.TextEdit{Start: lines[j].Start, End: lines[j].Start, NewText: pad})
-	}
+// flag reports the under-indented item. No fix is attached: a uniform re-indent
+// mishandles an already-inconsistent body, so the human (or an editor reindent)
+// resolves it.
+func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, delta int, report func(rule.Finding)) {
 	report(rule.Finding{
 		Rule:     "list-marker-indent",
 		Path:     doc.Path,
@@ -116,7 +110,6 @@ func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, st
 		Col:      1,
 		Message:  fmt.Sprintf("list item body is under-indented; indent it %d more space(s) to the marker's content column", delta),
 		Severity: rule.Warning,
-		Safety:   rule.Unsafe,
-		Fixes:    fixes,
+		Safety:   rule.NoFix,
 	})
 }

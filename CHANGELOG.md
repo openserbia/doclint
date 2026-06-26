@@ -6,6 +6,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- `list-marker-indent` is now **flag-only** (no autofix). The v0.5.0 unsafe fix did a uniform shift computed from the body's minimum indent, which over-indented an already-correct line when the body was itself inconsistently indented (e.g. a leading paragraph at a different column than its bullets — it pushed the paragraph to 4 while the bullets went to 3). Detection is unchanged; re-indent with your editor's reindent or by hand to the marker's content column.
+
 ## [0.5.0] - 2026-06-26
 
 ### Added
