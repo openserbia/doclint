@@ -1,5 +1,12 @@
 # doclint
 
+[![CI](https://github.com/openserbia/doclint/actions/workflows/ci.yml/badge.svg)](https://github.com/openserbia/doclint/actions/workflows/ci.yml)
+[![Release](https://github.com/openserbia/doclint/actions/workflows/release.yml/badge.svg)](https://github.com/openserbia/doclint/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/openserbia/doclint?sort=semver)](https://github.com/openserbia/doclint/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/openserbia/doclint.svg)](https://pkg.go.dev/github.com/openserbia/doclint)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openserbia/doclint)](https://goreportcard.com/report/github.com/openserbia/doclint)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A fast, single-binary linter, autofixer, and formatter for a Hugo site's
 **markdown content** and **data files**, driven by built-in and user-defined
 custom rules. Run it as a pre-deploy gate — like `golangci-lint`, but for content.
