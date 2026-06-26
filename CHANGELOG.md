@@ -6,7 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-06-25
+## [0.2.2] - 2026-06-26
+
+### Added
+- Grouped, lipgloss-styled `human` output: findings are grouped under a per-file header in an eslint-"stylish" layout (severity glyph, aligned `line:col`, message, rule) with a one-line summary footer. The leading `line:col` token is kept literal so editors (GoLand/IDEA) linkify each row for click-to-jump. Degrades to plain text under `--no-color`/`NO_COLOR` and when stdout is not a terminal.
+- `--format compact`: the previous flat `path:line:col [rule] severity message` output, ideal for CI and grep. The default `human` format auto-falls back to `compact` when stdout is not a terminal (pipes, CI, log capture), so machine consumers stay parseable; an explicit `--format human` is always honored.
+- `doclint init`: writes a commented starter `.doclint.yaml` to the current directory (`--force` overwrites an existing one).
+- Preflight config validation: a malformed `.doclint.yaml` now fails fast with a clear, file-prefixed message instead of being silently ignored — an unknown `default` preset; `enable`/`disable`/`settings` referencing an unknown rule (with a "did you mean …?" suggestion); or a custom rule with an unknown type, a missing required field, a bad regex, a duplicate/empty id, or an invalid severity.
+- Shell completion for rule names (`doclint explain <TAB>`) and the `--format` values, alongside Cobra's generated `doclint completion <shell>`.
 
 ### Fixed
 - `blanks-around-lists` no longer reports a missing blank line when the line directly above or below the list is a Hugo shortcode (`{{< … >}}` / `{{% … %}}`) or a CommonMark attribute block (`{.class}`). Those are Goldmark block constructs — a shortcode container edge or an attribute applied to the list — not prose that swallows or is absorbed by the list. markdownlint, parsing plain CommonMark, over-reports these boundaries; doclint now correctly ignores them (e.g. on a Hugo content corpus this cut the rule's findings by ~65%).

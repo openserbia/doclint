@@ -41,12 +41,19 @@ doclint lint --diff content
 doclint fmt content
 doclint fmt --check content   # CI gate: non-zero if any file would change
 
-# Machine-readable output
+# Output formats: human (grouped, default) | compact (flat, CI/grep) | json
+doclint lint --format compact content
 doclint lint --format json content
 
-# Discover rules
+# Scaffold a starter .doclint.yaml in the current directory (--force to overwrite)
+doclint init
+
+# Discover rules (explain tab-completes rule names)
 doclint list
 doclint explain details-blank-line
+
+# Shell completion — bash|zsh|fish|powershell
+source <(doclint completion zsh)
 ```
 
 `doclint` walks every file under the paths you pass, so scope it to your content
@@ -279,9 +286,14 @@ safe fixes only; `--unsafe-fixes` opts into the rest. Plain `lint` never mutates
 
 ## Output and exit codes
 
-`--format human` (default, colored) or `--format json`. Exit `0` when clean, `1`
-on error-severity findings (warnings are advisory; use `--max-warnings N` to
-tighten), `2` on a configuration or internal error.
+`--format human` (default — findings grouped by file, colored, each row
+click-to-jump in editors), `--format compact` (one flat `path:line:col` line per
+finding, for CI and grep), or `--format json`. The default `human` format
+auto-falls back to `compact` when stdout is not a terminal, so piped/CI output
+stays parseable and color-free. A malformed `.doclint.yaml` fails preflight with
+a clear, actionable message. Exit `0` when clean, `1` on error-severity findings
+(warnings are advisory; use `--max-warnings N` to tighten), `2` on a
+configuration or internal error.
 
 ## License
 
