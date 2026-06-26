@@ -22,6 +22,10 @@ func Format(doc *document.Document) []byte {
 	// 1. Apply the safe structural fix(es) first, on the raw bytes.
 	fixes := safeStructuralFixes(doc)
 	raw := doc.Raw
+	// Drop redundant same-boundary blank insertions before applying (e.g. a
+	// heading's below-blank and the following list's before-blank), so the edits
+	// are correct without relying on the later blank-run collapse.
+	fixes = coalesceBlankInserts(raw, fixes)
 	if len(fixes) > 0 {
 		if out, err := ApplyEdits(raw, fixes); err == nil {
 			raw = out

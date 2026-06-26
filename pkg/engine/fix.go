@@ -38,6 +38,46 @@ func ApplyEdits(src []byte, edits []rule.TextEdit) ([]byte, error) {
 	return out, nil
 }
 
+// coalesceBlankInserts drops redundant blank-line insertions that target the
+// same inter-line boundary. Two rules can each request a blank at one spot — e.g.
+// blanks-around-headings (a blank after a heading) and blanks-around-lists (a
+// blank before the immediately following list) both bracket the single newline
+// between the heading and the list. Applying both stacks two blank lines where
+// one is wanted (fmt's blank-run collapse hides this, but lint --fix does not).
+// This keeps the first insertion per bracketed newline; every non-blank-insert
+// edit passes through untouched and in original order.
+func coalesceBlankInserts(src []byte, edits []rule.TextEdit) []rule.TextEdit {
+	seen := make(map[int]bool)
+	out := make([]rule.TextEdit, 0, len(edits))
+	for _, e := range edits {
+		if e.Start != e.End || e.NewText != "\n" {
+			out = append(out, e)
+			continue
+		}
+		key := bracketedNewline(src, e.Start)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, e)
+	}
+	return out
+}
+
+// bracketedNewline returns the offset of the existing newline a blank-line
+// insertion at off sits next to: off when a newline follows (a line-end anchor),
+// off-1 when a newline precedes (a line-start anchor), else off (a document
+// edge). Insertions that bracket the same newline share a key, so they coalesce.
+func bracketedNewline(src []byte, off int) int {
+	if off >= 0 && off < len(src) && src[off] == '\n' {
+		return off
+	}
+	if off-1 >= 0 && off-1 < len(src) && src[off-1] == '\n' {
+		return off - 1
+	}
+	return off
+}
+
 // diffContext is the number of unchanged lines shown around each diff hunk.
 const diffContext = 3
 

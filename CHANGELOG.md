@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-06-26
+
+### Fixed
+- `lint --fix` no longer stacks two blank lines where a heading is butted directly against a list. `blanks-around-headings` (a blank after the heading) and `blanks-around-lists` (a blank before the list) both target the single newline between them; their insertions are now coalesced so exactly one blank line is added. `fmt` already collapsed the duplicate via its blank-run pass — this makes `lint --fix` (and `bun run lint:content-fix`) match.
+
 ## [0.2.2] - 2026-06-26
 
 ### Added

@@ -224,6 +224,7 @@ func (e *Engine) fixFile(f target, unsafe bool) (out []byte, modified bool, err 
 	if len(edits) == 0 {
 		return nil, false, nil
 	}
+	edits = coalesceBlankInserts(raw, edits)
 	out, err = ApplyEdits(raw, edits)
 	if err != nil {
 		return nil, false, err

@@ -4,8 +4,40 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openserbia/doclint/pkg/document"
 	"github.com/openserbia/doclint/pkg/rule"
+	"github.com/openserbia/doclint/pkg/rule/builtin"
 )
+
+func TestCoalesceBlankInserts_HeadingThenList(t *testing.T) {
+	// A heading butted against a list: blanks-around-headings wants a blank after
+	// the heading and blanks-around-lists wants one before the list — both bracket
+	// the same newline. Applying both must yield ONE blank line, not two.
+	raw := []byte("## Heading\n- item one\n- item two\nplain trailing para\n")
+	doc, err := document.ParseMarkdown("t.md", raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	var edits []rule.TextEdit
+	collect := func(f rule.Finding) {
+		if f.Safety == rule.Safe {
+			edits = append(edits, f.Fixes...)
+		}
+	}
+	(builtin.BlanksAroundHeadings{}).Check(doc, collect)
+	(builtin.BlanksAroundLists{}).Check(doc, collect)
+
+	out, err := ApplyEdits(raw, coalesceBlankInserts(raw, edits))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if strings.Contains(string(out), "\n\n\n") {
+		t.Errorf("fix stacked two blank lines:\n%q", out)
+	}
+	if !strings.Contains(string(out), "## Heading\n\n- item one") {
+		t.Errorf("want a single blank between heading and list, got:\n%q", out)
+	}
+}
 
 func TestApplyEdits_OrdersAndSplices(t *testing.T) {
 	src := []byte("hello world")
