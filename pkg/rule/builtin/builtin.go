@@ -15,4 +15,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(NoAltText{})
 	reg.Register(NoTrailingSpaces{})
 	reg.Register(NoBrokenAnchor{})
+	reg.Register(ListMarkerIndent{})
 }
