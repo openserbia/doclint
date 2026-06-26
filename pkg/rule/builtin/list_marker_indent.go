@@ -3,6 +3,7 @@ package builtin
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/openserbia/doclint/pkg/document"
 	"github.com/openserbia/doclint/pkg/rule"
@@ -29,15 +30,17 @@ func (ListMarkerIndent) Meta() rule.Meta {
 			"less than that (a common foot-gun is a 2-space body under a single-digit " +
 			"\"1. \" item, which needs 3), CommonMark/Goldmark does not attach it to the " +
 			"item: the nested list escapes, an ordered list splits into single-item " +
-			"lists, and the numbering restarts (1. 1. 1. instead of 1. 2. 3.). No " +
-			"automatic fix is offered: re-indenting a body that is itself " +
-			"inconsistently indented (e.g. a leading paragraph at a different column " +
-			"than the bullets) has no single safe answer — a uniform shift would " +
-			"over-indent the already-correct lines — so the line is surfaced for a " +
-			"human; most editors' reindent does the right thing.",
+			"lists, and the numbering restarts (1. 1. 1. instead of 1. 2. 3.). The " +
+			"Unsafe fix (--fix --unsafe-fixes) re-indents the body to the content " +
+			"column: content outside the nested list (a leading paragraph, or a " +
+			"closing shortcode that de-indented out of it) is set to the content " +
+			"column, and the nested list block is shifted as a whole so its relative " +
+			"nesting is preserved. Separating the two is what stops an already-correct " +
+			"line from being over-indented (the v0.5.0 uniform shift's bug); it stays " +
+			"Unsafe because an inconsistent body can warrant a human's eye on the diff.",
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
-		Safety:   rule.NoFix,
+		Safety:   rule.Unsafe,
 		Example: rule.Example{
 			Bad: `1. {{< details "Doc" >}}
   - body under-indented (2 spaces under a "1. " item)
@@ -65,7 +68,7 @@ func (r ListMarkerIndent) Check(doc *document.Document, report func(rule.Finding
 		contentCol := markerIndent + len(m[2]) + 1
 		end, base := bodyExtent(lines, i, markerIndent)
 		if base > markerIndent && base < contentCol {
-			r.flag(doc, lines, i, contentCol-base, report)
+			r.flag(doc, lines, i, end, contentCol, contentCol-base, report)
 		}
 		i = end + 1
 	}
@@ -99,10 +102,13 @@ func bodyExtent(lines []document.Line, i, markerIndent int) (end, base int) {
 	return end, base
 }
 
-// flag reports the under-indented item. No fix is attached: a uniform re-indent
-// mishandles an already-inconsistent body, so the human (or an editor reindent)
-// resolves it.
-func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, delta int, report func(rule.Finding)) {
+// flag reports the under-indented item and an Unsafe fix that re-indents its body
+// to the content column. Leading content (before the first nested list item) is
+// set to the content column; the list block from the first list item onward is
+// shifted by one delta so its relative nesting is preserved. Splitting the two is
+// what keeps an already-correct leading paragraph from being over-indented.
+// flag reports the under-indented item with an Unsafe fix from bodyReindentFixes.
+func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, end, contentCol, delta int, report func(rule.Finding)) {
 	report(rule.Finding{
 		Rule:     "list-marker-indent",
 		Path:     doc.Path,
@@ -110,6 +116,85 @@ func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, st
 		Col:      1,
 		Message:  fmt.Sprintf("list item body is under-indented; indent it %d more space(s) to the marker's content column", delta),
 		Severity: rule.Warning,
-		Safety:   rule.NoFix,
+		Safety:   rule.Unsafe,
+		Fixes:    bodyReindentFixes(lines, start, end, contentCol),
 	})
+}
+
+// bodyReindentFixes re-indents an item body (lines after start, through end) to
+// contentCol. Content outside the nested list — a leading paragraph, or a trailing
+// closing shortcode that de-indented out of it — is set to contentCol; the list
+// block is shifted as a whole so its relative nesting is preserved. Separating the
+// two keeps an already-correct line from being over-indented.
+func bodyReindentFixes(lines []document.Line, start, end, contentCol int) []rule.TextEdit {
+	firstList := firstListItem(lines, start+1, end)
+	leadEnd := end // with no nested list, every body line is direct content
+	if firstList >= 0 {
+		leadEnd = firstList - 1
+	}
+	fixes := appendSetIndent(nil, lines, start+1, leadEnd, contentCol)
+	if firstList < 0 {
+		return fixes
+	}
+	listBase := leadingWhitespace(lines[firstList].Text)
+	lastList := listBlockEnd(lines, firstList, end, listBase)
+	if shift := contentCol - listBase; shift > 0 {
+		pad := strings.Repeat(" ", shift)
+		for j := firstList; j <= lastList; j++ {
+			if !isBlank(lines[j].Text) {
+				fixes = append(fixes, rule.TextEdit{Start: lines[j].Start, End: lines[j].Start, NewText: pad})
+			}
+		}
+	}
+	return appendSetIndent(fixes, lines, lastList+1, end, contentCol)
+}
+
+// firstListItem returns the index of the first list-item line in [from, to], or -1.
+func firstListItem(lines []document.Line, from, to int) int {
+	for j := from; j <= to; j++ {
+		if !isBlank(lines[j].Text) && listMarkerRe.MatchString(lines[j].Text) {
+			return j
+		}
+	}
+	return -1
+}
+
+// listBlockEnd returns the last index of the run from firstList whose non-blank
+// lines stay indented at least listBase (interior blanks don't end the run).
+func listBlockEnd(lines []document.Line, firstList, end, listBase int) int {
+	last := firstList
+	for j := firstList; j <= end; j++ {
+		if isBlank(lines[j].Text) {
+			continue
+		}
+		if leadingWhitespace(lines[j].Text) < listBase {
+			break
+		}
+		last = j
+	}
+	return last
+}
+
+// appendSetIndent appends a set-to-target edit for each non-blank line in [from,
+// to] that is not already at target.
+func appendSetIndent(fixes []rule.TextEdit, lines []document.Line, from, to, target int) []rule.TextEdit {
+	for j := from; j <= to; j++ {
+		if edit, ok := setIndent(lines[j], target); ok {
+			fixes = append(fixes, edit)
+		}
+	}
+	return fixes
+}
+
+// setIndent returns an edit that replaces a line's leading spaces with exactly
+// target spaces, and false when the line is blank or already at target.
+func setIndent(ln document.Line, target int) (rule.TextEdit, bool) {
+	if isBlank(ln.Text) {
+		return rule.TextEdit{}, false
+	}
+	cur := leadingWhitespace(ln.Text)
+	if cur == target {
+		return rule.TextEdit{}, false
+	}
+	return rule.TextEdit{Start: ln.Start, End: ln.Start + cur, NewText: strings.Repeat(" ", target)}, true
 }

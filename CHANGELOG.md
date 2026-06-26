@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-06-26
+
+### Changed
+- `list-marker-indent` gets its autofix back, rebuilt correctly (v0.5.1 had removed it for mangling). The Unsafe fix (`--fix --unsafe-fixes`) now re-indents by **structure** rather than a single uniform shift: content outside the nested list — a leading paragraph, or a trailing closing shortcode that de-indented out of it — is set to the content column, and the list block is shifted as a whole so nested levels keep their relative depth. On the test corpus this fixes all 61 occurrences idempotently with no new errors, where the old shift over-indented already-correct lines (e.g. a leading paragraph at 3 pushed to 4). Covered by tests for the leading-paragraph, nesting, and trailing-closer cases.
+
 ## [0.5.1] - 2026-06-26
 
 ### Changed

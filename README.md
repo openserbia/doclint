@@ -79,7 +79,7 @@ and data directories (or use `ignore` globs in config).
 | [Image alt text](docs/rules/no-alt-text.md) (`no-alt-text`) | warning | — | images should have non-empty alt text for accessibility and SEO |
 | [Trailing whitespace](docs/rules/no-trailing-spaces.md) (`no-trailing-spaces`) | warning | safe | remove stray trailing spaces while preserving the two-space hard line break |
 | [Valid in-page anchor links](docs/rules/no-broken-anchor.md) (`no-broken-anchor`) | warning | — | in-page anchor links must point at a heading in the same page |
-| [List item body indentation](docs/rules/list-marker-indent.md) (`list-marker-indent`) | warning | — | list item bodies must indent to the marker's content column |
+| [List item body indentation](docs/rules/list-marker-indent.md) (`list-marker-indent`) | warning | unsafe | list item bodies must indent to the marker's content column |
 
 <!-- rules:end -->
 
