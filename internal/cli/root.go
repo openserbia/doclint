@@ -36,11 +36,17 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 		return []string{"human", "compact", "json"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	// Replace Cobra's bare-script `completion` command with our friendlier one
+	// (interactive install or manual steps); the hidden __complete machinery that
+	// actually drives tab-completion is unaffected.
+	root.CompletionOptions.DisableDefaultCmd = true
+
 	root.AddCommand(newLintCmd(opts))
 	root.AddCommand(newFmtCmd(opts))
 	root.AddCommand(newExplainCmd())
 	root.AddCommand(newListCmd(opts))
 	root.AddCommand(newInitCmd())
+	root.AddCommand(newCompletionCmd(root))
 	return root
 }
 
