@@ -24,6 +24,7 @@ type NoMissingSpaceATX struct{}
 func (NoMissingSpaceATX) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "no-missing-space-atx",
+		Title:       "Space after heading hashes",
 		Description: "require a space after the # of an ATX heading so it renders",
 		Detail: "An ATX heading is 1-6 '#' characters followed by a space (or tab) " +
 			"and the heading text. When the text is glued straight onto the hashes " +
@@ -37,6 +38,10 @@ func (NoMissingSpaceATX) Meta() rule.Meta {
 		Severity: rule.Error,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad:  `#Heading renders as plain text`,
+			Good: `# Heading renders as a heading`,
+		},
 	}
 }
 

@@ -26,6 +26,7 @@ type BlanksAroundFences struct{}
 func (BlanksAroundFences) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "blanks-around-fences",
+		Title:       "Blank lines around code fences",
 		Description: "fenced code blocks should be surrounded by blank lines",
 		Detail: "A fenced code block (``` or ~~~) needs a blank line before its " +
 			"opening delimiter and after its closing delimiter. When a fence is " +
@@ -40,6 +41,20 @@ func (BlanksAroundFences) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad: `text
+~~~
+code
+~~~
+more`,
+			Good: `text
+
+~~~
+code
+~~~
+
+more`,
+		},
 	}
 }
 

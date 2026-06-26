@@ -40,6 +40,7 @@ type HeadingStartLeft struct{}
 func (HeadingStartLeft) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "heading-start-left",
+		Title:       "Heading at the left margin",
 		Description: "ATX headings should start at the left margin (no leading indentation)",
 		Detail: "An ATX heading indented from the left margin is at best cosmetic " +
 			"clutter and at worst a lost heading. With 1-3 leading columns the " +
@@ -54,6 +55,10 @@ func (HeadingStartLeft) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad:  `  ## Indented heading`,
+			Good: `## Indented heading`,
+		},
 	}
 }
 

@@ -49,6 +49,7 @@ type BlanksAroundLists struct{}
 func (BlanksAroundLists) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "blanks-around-lists",
+		Title:       "Blank lines around lists",
 		Description: "lists should be surrounded by blank lines",
 		Detail: "A list block needs a blank line before its first item and after its " +
 			"last item. When a list line is butted directly beneath a paragraph, " +
@@ -65,6 +66,18 @@ func (BlanksAroundLists) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad: `Intro paragraph
+- first item
+- second item
+Outro paragraph`,
+			Good: `Intro paragraph
+
+- first item
+- second item
+
+Outro paragraph`,
+		},
 	}
 }
 

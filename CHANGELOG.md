@@ -7,6 +7,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Each rule now carries a human-readable `Title` and a before/after `Example`, rendered into its `docs/rules/<rule>.md` page (title heading, machine name, and "Flagged"/"Fixed" snippets). `doclint docs` also (re)generates a rule reference table into `README.md` between `<!-- rules:start -->` / `<!-- rules:end -->` markers, so the README can no longer drift from the rules.
 - `lint --rule <name>` (repeatable) restricts the run to specific rule(s) — report or `--fix` just that rule, in a single file or across a tree (e.g. `doclint lint --fix --rule no-trailing-spaces content/page.md`). It tab-completes rule names and errors on an unknown or inactive rule.
 
 ### Changed

@@ -16,6 +16,7 @@ type TableColumnCount struct{}
 func (TableColumnCount) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "table-column-count",
+		Title:       "Consistent table columns",
 		Description: "require every table row to match the header's column count",
 		Detail: "A GFM pipe table's column count is fixed by its header row. When a " +
 			"data row has more or fewer cells, the renderer silently drops or pads " +
@@ -25,6 +26,14 @@ func (TableColumnCount) Meta() rule.Meta {
 		Severity: rule.Error,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.NoFix,
+		Example: rule.Example{
+			Bad: `| Doc | Who keeps it |
+| --- | --- |
+| Passport |`,
+			Good: `| Doc | Who keeps it |
+| --- | --- |
+| Passport | you |`,
+		},
 	}
 }
 

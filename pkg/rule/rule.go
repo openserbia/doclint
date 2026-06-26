@@ -61,14 +61,24 @@ type TextEdit struct {
 	NewText string
 }
 
+// Example is an optional before/after illustration for a rule, rendered into its
+// generated docs page. Bad is the markdown that triggers the rule; Good is the
+// corrected (or autofixed) form.
+type Example struct {
+	Bad  string
+	Good string
+}
+
 // Meta is a rule's static descriptor.
 type Meta struct {
 	Name        string
+	Title       string            // human-readable display name, shown in the docs
 	Description string            // one line, shown by `list`
 	Detail      string            // long help, shown by `explain`
 	Severity    Severity          // default; config may override
 	Formats     []document.Format // which formats this rule applies to
 	Safety      FixSafety         // safety of fixes this rule emits
+	Example     Example           // optional before/after for the docs page
 }
 
 // AppliesTo reports whether the rule runs on the given format.

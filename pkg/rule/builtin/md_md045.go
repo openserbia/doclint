@@ -24,6 +24,7 @@ type NoAltText struct{}
 func (NoAltText) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "no-alt-text",
+		Title:       "Image alt text",
 		Description: "images should have non-empty alt text for accessibility and SEO",
 		Detail: "An inline image written ![](url) or ![ ](url) has empty (or " +
 			"whitespace-only) alt text. The image still renders, but a screen " +
@@ -38,6 +39,10 @@ func (NoAltText) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.NoFix,
+		Example: rule.Example{
+			Bad:  `![](/images/skadarlija.jpg)`,
+			Good: `![Skadarlija street at dusk](/images/skadarlija.jpg)`,
+		},
 	}
 }
 

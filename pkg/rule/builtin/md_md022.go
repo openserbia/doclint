@@ -39,6 +39,7 @@ type BlanksAroundHeadings struct{}
 func (BlanksAroundHeadings) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "blanks-around-headings",
+		Title:       "Blank lines around headings",
 		Description: "headings should be surrounded by blank lines",
 		Detail: "An ATX heading (\"# Heading\") or setext heading (a line of text " +
 			"underlined by \"===\" or \"---\") should have a blank line both above " +
@@ -57,6 +58,16 @@ func (BlanksAroundHeadings) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad: `Intro paragraph
+# Heading
+Body text`,
+			Good: `Intro paragraph
+
+# Heading
+
+Body text`,
+		},
 	}
 }
 

@@ -19,6 +19,7 @@ type DetailsBlankLine struct{}
 func (DetailsBlankLine) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "details-blank-line",
+		Title:       "Blank line after </summary>",
 		Description: "require a blank line after </summary> so inner markdown renders",
 		Detail: "Goldmark parses <details><summary>…</summary> as an HTML block " +
 			"that ends at the next blank line. If content or markdown follows " +
@@ -28,6 +29,13 @@ func (DetailsBlankLine) Meta() rule.Meta {
 		Severity: rule.Error,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad: `<details><summary>More</summary>
+- this item is swallowed as raw HTML`,
+			Good: `<details><summary>More</summary>
+
+- this item renders as a list`,
+		},
 	}
 }
 

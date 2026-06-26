@@ -1,4 +1,6 @@
-# table-column-count
+# Consistent table columns
+
+`table-column-count`
 
 > require every table row to match the header's column count
 
@@ -8,6 +10,24 @@
 ## How to fix
 
 A GFM pipe table's column count is fixed by its header row. When a data row has more or fewer cells, the renderer silently drops or pads cells, so the table no longer means what the author wrote. This rule reports each row whose cell count differs from the header. It emits no fix because the correct cell boundaries cannot be inferred.
+
+## Example
+
+Flagged:
+
+```markdown
+| Doc | Who keeps it |
+| --- | --- |
+| Passport |
+```
+
+Fixed:
+
+```markdown
+| Doc | Who keeps it |
+| --- | --- |
+| Passport | you |
+```
 
 ---
 

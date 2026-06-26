@@ -29,6 +29,7 @@ type NoTrailingSpaces struct{}
 func (NoTrailingSpaces) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "no-trailing-spaces",
+		Title:       "Trailing whitespace",
 		Description: "remove stray trailing spaces while preserving the two-space hard line break",
 		Detail: "Trailing spaces at the end of a line are invisible and usually " +
 			"accidental. CommonMark gives exactly two trailing spaces a single " +
@@ -45,6 +46,10 @@ func (NoTrailingSpaces) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.Safe,
+		Example: rule.Example{
+			Bad:  "first line has a stray trailing space \nsecond line",
+			Good: "first line has a stray trailing space\nsecond line",
+		},
 	}
 }
 

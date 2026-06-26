@@ -44,6 +44,7 @@ type NoBrokenAnchor struct{}
 func (NoBrokenAnchor) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "no-broken-anchor",
+		Title:       "Valid in-page anchor links",
 		Description: "in-page anchor links must point at a heading in the same page",
 		Detail: "A markdown link to a pure fragment — [text](#some-heading) — jumps to " +
 			"the heading whose auto-generated id matches that fragment. Unlike a Hugo " +
@@ -59,6 +60,14 @@ func (NoBrokenAnchor) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.NoFix,
+		Example: rule.Example{
+			Bad: `## Overview
+
+See the [overview](#overvew).`,
+			Good: `## Overview
+
+See the [overview](#overview).`,
+		},
 	}
 }
 

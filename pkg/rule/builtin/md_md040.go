@@ -18,6 +18,7 @@ type FencedCodeLanguage struct{}
 func (FencedCodeLanguage) Meta() rule.Meta {
 	return rule.Meta{
 		Name:        "fenced-code-language",
+		Title:       "Code fence language",
 		Description: "fenced code blocks should specify a language for syntax highlighting",
 		Detail: "A fenced code block (``` or ~~~) whose opening delimiter has an empty " +
 			"info string declares no language. Hugo's Chroma highlighter then has " +
@@ -31,6 +32,14 @@ func (FencedCodeLanguage) Meta() rule.Meta {
 		Severity: rule.Warning,
 		Formats:  []document.Format{document.Markdown},
 		Safety:   rule.NoFix,
+		Example: rule.Example{
+			Bad: `~~~
+echo hello
+~~~`,
+			Good: `~~~bash
+echo hello
+~~~`,
+		},
 	}
 }
 

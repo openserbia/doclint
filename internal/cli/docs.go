@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -40,6 +41,9 @@ func newDocsCmd(opts *Options) *cobra.Command {
 					return err
 				}
 			}
+			if err := writeReadmeTable(rules); err != nil {
+				return err
+			}
 			u := newUI(cmd.OutOrStdout(), opts.NoColor)
 			u.ok(fmt.Sprintf("wrote %d rule %s", len(rules), plural(len(rules), "page")))
 			u.item(outDir)
@@ -51,17 +55,77 @@ func newDocsCmd(opts *Options) *cobra.Command {
 }
 
 func rulePage(m rule.Meta) string {
-	fix := "no automatic fix — surfaced for a human to resolve"
-	switch m.Safety {
-	case rule.NoFix:
-		fix = "no automatic fix — surfaced for a human to resolve"
-	case rule.Safe:
-		fix = "safe autofix, applied by `doclint lint --fix` and `doclint fmt`"
-	case rule.Unsafe:
-		fix = "unsafe autofix, applied only with `doclint lint --fix --unsafe-fixes`"
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n`%s`\n\n> %s\n\n- **Default severity:** %s\n- **Fix:** %s\n\n## How to fix\n\n%s\n",
+		ruleTitle(m), m.Name, m.Description, m.Severity, ruleFixLabel(m.Safety), m.Detail)
+	if m.Example.Bad != "" {
+		fmt.Fprintf(&b, "\n## Example\n\nFlagged:\n\n```markdown\n%s\n```\n\nFixed:\n\n```markdown\n%s\n```\n",
+			m.Example.Bad, m.Example.Good)
 	}
-	return fmt.Sprintf(
-		"# %s\n\n> %s\n\n- **Default severity:** %s\n- **Fix:** %s\n\n## How to fix\n\n%s\n\n---\n\n_Generated from `doclint` rule metadata — run `doclint docs` to refresh; do not edit by hand._\n",
-		m.Name, m.Description, m.Severity, fix, m.Detail,
-	)
+	b.WriteString("\n---\n\n_Generated from `doclint` rule metadata — run `doclint docs` to refresh; do not edit by hand._\n")
+	return b.String()
+}
+
+// ruleTitle is the human-readable display name, falling back to the machine name.
+func ruleTitle(m rule.Meta) string {
+	if m.Title != "" {
+		return m.Title
+	}
+	return m.Name
+}
+
+func ruleFixLabel(s rule.FixSafety) string {
+	switch s {
+	case rule.Safe:
+		return "safe autofix, applied by `doclint lint --fix` and `doclint fmt`"
+	case rule.Unsafe:
+		return "unsafe autofix, applied only with `doclint lint --fix --unsafe-fixes`"
+	default:
+		return "no automatic fix — surfaced for a human to resolve"
+	}
+}
+
+// readme markers delimit the generated rule table in README.md.
+const (
+	rulesStartMark = "<!-- rules:start -->"
+	rulesEndMark   = "<!-- rules:end -->"
+)
+
+// writeReadmeTable rewrites the rule table between the markers in README.md (in
+// the current directory). It is a no-op when there is no README or no markers,
+// so running `doclint docs` outside the repo is harmless.
+func writeReadmeTable(rules []rule.Rule) error {
+	const readmePath = "README.md"
+	body, err := os.ReadFile(readmePath)
+	if err != nil {
+		return nil //nolint:nilerr // no README here — nothing to update
+	}
+	content := string(body)
+	s := strings.Index(content, rulesStartMark)
+	e := strings.Index(content, rulesEndMark)
+	if s < 0 || e < s {
+		return nil // markers absent — leave the file alone
+	}
+	var t strings.Builder
+	t.WriteString(rulesStartMark + "\n\n")
+	t.WriteString("| Rule | Severity | Fix | Description |\n|---|---|---|---|\n")
+	for _, r := range rules {
+		m := r.Meta()
+		fmt.Fprintf(&t, "| [%s](docs/rules/%s.md) (`%s`) | %s | %s | %s |\n",
+			ruleTitle(m), m.Name, m.Name, m.Severity, fixTag(m.Safety), m.Description)
+	}
+	t.WriteString("\n" + rulesEndMark)
+	out := content[:s] + t.String() + content[e+len(rulesEndMark):]
+	return os.WriteFile(readmePath, []byte(out), docsFileMode) //nolint:gosec // repo README
+}
+
+func fixTag(s rule.FixSafety) string {
+	switch s {
+	case rule.Safe:
+		return "safe"
+	case rule.Unsafe:
+		return "unsafe"
+	default:
+		return "—"
+	}
 }
