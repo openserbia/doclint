@@ -25,8 +25,9 @@ const fileMode = 0o600
 
 // Engine holds the resolved active rule set and config.
 type Engine struct {
-	cfg   *config.Config
-	rules []rule.Rule
+	cfg     *config.Config
+	rules   []rule.Rule
+	builtin map[string]bool // names of built-in rules (those with doc pages)
 }
 
 // Result is the outcome of a Run.
@@ -47,7 +48,7 @@ func (r *Result) ExitCode() int {
 // New resolves the active rules: built-ins filtered by enable/disable/default,
 // plus compiled declarative rules from the config `custom:` block.
 func New(cfg *config.Config, reg *rule.Registry) (*Engine, error) {
-	e := &Engine{cfg: cfg}
+	e := &Engine{cfg: cfg, builtin: map[string]bool{}}
 	disabled := toSet(cfg.Disable)
 	enabled := toSet(cfg.Enable)
 
@@ -57,6 +58,7 @@ func New(cfg *config.Config, reg *rule.Registry) (*Engine, error) {
 			if err != nil {
 				return nil, err
 			}
+			e.builtin[r.Meta().Name] = true
 			e.rules = append(e.rules, wrapped)
 		}
 	}
@@ -157,6 +159,9 @@ func (e *Engine) lintFile(path string, format document.Format) ([]rule.Finding, 
 		r.Check(doc, func(f rule.Finding) {
 			if f.Path == "" {
 				f.Path = path
+			}
+			if e.builtin[f.Rule] {
+				f.DocURL = rule.DocURL(f.Rule)
 			}
 			if sup.Suppressed(f) {
 				return

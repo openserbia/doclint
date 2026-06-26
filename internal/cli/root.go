@@ -47,6 +47,7 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	root.AddCommand(newListCmd(opts))
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newCompletionCmd(root))
+	root.AddCommand(newDocsCmd())
 	return root
 }
 

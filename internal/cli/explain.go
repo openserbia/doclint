@@ -30,7 +30,7 @@ func newExplainCmd() *cobra.Command {
 				return fmt.Errorf("unknown rule %q", args[0])
 			}
 			m := r.Meta()
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "%s [%s]\n\n%s\n\n%s\n", m.Name, m.Severity, m.Description, m.Detail)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "%s [%s]\n\n%s\n\n%s\n\nDocs: %s\n", m.Name, m.Severity, m.Description, m.Detail, rule.DocURL(m.Name))
 			return err
 		},
 	}

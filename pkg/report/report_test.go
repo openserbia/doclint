@@ -97,6 +97,26 @@ func TestFixMarkersAndCounts(t *testing.T) {
 	}
 }
 
+func TestDocLinks(t *testing.T) {
+	findings := []rule.Finding{
+		{Rule: "no-trailing-spaces", Path: "a.md", Line: 1, Col: 5, Message: "x", Severity: rule.Warning, DocURL: "https://example.test/nts.md"},
+	}
+	var human bytes.Buffer
+	if err := (Human{NoColor: true}).Report(&human, findings); err != nil {
+		t.Fatal(err)
+	}
+	if s := human.String(); !strings.Contains(s, "learn how to fix:") || !strings.Contains(s, "https://example.test/nts.md") {
+		t.Errorf("human footer should list the doc URL:\n%s", s)
+	}
+	var j bytes.Buffer
+	if err := (JSON{}).Report(&j, findings); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(j.String(), `"doc_url": "https://example.test/nts.md"`) {
+		t.Errorf("json should include doc_url:\n%s", j.String())
+	}
+}
+
 func TestCompact(t *testing.T) {
 	var buf bytes.Buffer
 	if err := (Compact{NoColor: true}).Report(&buf, sample); err != nil {

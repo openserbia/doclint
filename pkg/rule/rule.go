@@ -90,6 +90,7 @@ type Finding struct {
 	Message  string     `json:"message"`
 	Severity Severity   `json:"severity"`
 	Safety   FixSafety  `json:"-"`
+	DocURL   string     `json:"-"` // documentation URL (built-in rules only)
 	Fixes    []TextEdit `json:"-"`
 }
 
@@ -97,4 +98,12 @@ type Finding struct {
 type Rule interface {
 	Meta() Meta
 	Check(doc *document.Document, report func(Finding))
+}
+
+// docBaseURL is the GitHub blob path of the generated per-rule reference pages.
+const docBaseURL = "https://github.com/openserbia/doclint/blob/main/docs/rules/"
+
+// DocURL returns the documentation URL for a built-in rule by name.
+func DocURL(name string) string {
+	return docBaseURL + name + ".md"
 }

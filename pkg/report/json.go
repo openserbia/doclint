@@ -21,6 +21,7 @@ func (j JSON) Report(w io.Writer, findings []rule.Finding) error {
 		Severity string `json:"severity"`
 		Fixable  bool   `json:"fixable"`
 		Fix      string `json:"fix"` // safe | unsafe | none
+		DocURL   string `json:"doc_url,omitempty"`
 	}
 	out := make([]wire, 0, len(findings))
 	for _, f := range findings {
@@ -28,7 +29,7 @@ func (j JSON) Report(w io.Writer, findings []rule.Finding) error {
 			Rule: f.Rule, Path: f.Path, Line: f.Line, Col: f.Col,
 			Message: f.Message, Severity: f.Severity.String(),
 			Fixable: f.Safety == rule.Safe || f.Safety == rule.Unsafe,
-			Fix:     fixString(f.Safety),
+			Fix:     fixString(f.Safety), DocURL: f.DocURL,
 		})
 	}
 	enc := json.NewEncoder(w)

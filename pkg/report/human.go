@@ -222,6 +222,39 @@ func renderFooter(lw *lineWriter, st humanStyles, findings []rule.Finding, files
 	if len(fixParts) > 0 {
 		lw.write("   " + strings.Join(fixParts, "  ") + "\n")
 	}
+
+	docs := distinctDocs(findings)
+	if len(docs) > 0 {
+		lw.write("\n " + st.ruleN.Render("learn how to fix:") + "\n")
+		w := 0
+		for _, d := range docs {
+			if len(d.rule) > w {
+				w = len(d.rule)
+			}
+		}
+		for _, d := range docs {
+			lw.write("   " + d.rule + strings.Repeat(" ", w-len(d.rule)) + "  " + st.loc.Render(d.url) + "\n")
+		}
+	}
+}
+
+type docRef struct{ rule, url string }
+
+// distinctDocs returns the rule→doc-URL pairs of the built-in rules that fired,
+// one per rule, sorted by rule name — so the footer lists each problem type once.
+func distinctDocs(findings []rule.Finding) []docRef {
+	seen := map[string]string{}
+	for _, f := range findings {
+		if f.DocURL != "" {
+			seen[f.Rule] = f.DocURL
+		}
+	}
+	out := make([]docRef, 0, len(seen))
+	for r, u := range seen {
+		out = append(out, docRef{rule: r, url: u})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].rule < out[j].rule })
+	return out
 }
 
 // truncateRunes shortens s to at most maxRunes runes (rune-aware so multibyte
