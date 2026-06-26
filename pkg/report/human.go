@@ -80,6 +80,20 @@ func (st humanStyles) glyph(s rule.Severity) string {
 	}
 }
 
+// fixMark is the one-cell autofix indicator: a green "*" for a safe fix, a yellow
+// "~" for an unsafe-only fix, a space when the finding has no fix. Fixed width so
+// the rows stay aligned.
+func (st humanStyles) fixMark(s rule.FixSafety) string {
+	switch s {
+	case rule.Safe:
+		return st.okG.Render("*")
+	case rule.Unsafe:
+		return st.warnG.Render("~")
+	default:
+		return " "
+	}
+}
+
 // lineWriter streams strings to an io.Writer, latching the first error so call
 // sites stay terse (every Write to the underlying writer is still checked).
 type lineWriter struct {
@@ -153,7 +167,9 @@ func renderGroup(lw *lineWriter, st humanStyles, group []rule.Finding) {
 	for k, f := range ordered {
 		lw.write("  ")
 		lw.write(st.glyph(f.Severity))
-		lw.write("  ")
+		lw.write(" ")
+		lw.write(st.fixMark(f.Safety))
+		lw.write(" ")
 		lw.write(st.loc.Render(locs[k]))
 		lw.write(strings.Repeat(" ", locW-len([]rune(locs[k]))))
 		lw.write("  ")
@@ -194,6 +210,18 @@ func renderFooter(lw *lineWriter, st humanStyles, findings []rule.Finding, files
 	parts = append(parts, fmt.Sprintf("across %d %s", files, plural(files, "file")))
 
 	lw.write(" " + glyph + " " + strings.Join(parts, " · ") + "\n")
+
+	safe, unsafe := fixCounts(findings)
+	var fixParts []string
+	if safe > 0 {
+		fixParts = append(fixParts, st.okG.Render("*")+fmt.Sprintf(" %d fixable with --fix", safe))
+	}
+	if unsafe > 0 {
+		fixParts = append(fixParts, st.warnG.Render("~")+fmt.Sprintf(" %d with --unsafe-fixes", unsafe))
+	}
+	if len(fixParts) > 0 {
+		lw.write("   " + strings.Join(fixParts, "  ") + "\n")
+	}
 }
 
 // truncateRunes shortens s to at most maxRunes runes (rune-aware so multibyte

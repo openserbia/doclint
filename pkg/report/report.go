@@ -25,3 +25,18 @@ func counts(findings []rule.Finding) (errors, warnings, infos int) {
 	}
 	return
 }
+
+// fixCounts tallies how many findings carry a safe vs an unsafe-only autofix.
+func fixCounts(findings []rule.Finding) (safe, unsafe int) {
+	for _, f := range findings {
+		switch f.Safety {
+		case rule.NoFix:
+			// nothing to count
+		case rule.Safe:
+			safe++
+		case rule.Unsafe:
+			unsafe++
+		}
+	}
+	return
+}

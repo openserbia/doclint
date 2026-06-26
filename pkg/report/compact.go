@@ -63,6 +63,18 @@ func (c Compact) Report(w io.Writer, findings []rule.Finding) error {
 		}
 	}
 	errs, warns, infos := counts(findings)
-	_, err := fmt.Fprintf(w, "\n%d error(s), %d warning(s), %d info\n", errs, warns, infos)
-	return err
+	if _, err := fmt.Fprintf(w, "\n%d error(s), %d warning(s), %d info\n", errs, warns, infos); err != nil {
+		return err
+	}
+	safe, unsafe := fixCounts(findings)
+	if safe > 0 || unsafe > 0 {
+		msg := fmt.Sprintf("%d fixable with --fix", safe)
+		if unsafe > 0 {
+			msg += fmt.Sprintf(", %d with --unsafe-fixes", unsafe)
+		}
+		if _, err := fmt.Fprintln(w, msg); err != nil {
+			return err
+		}
+	}
+	return nil
 }

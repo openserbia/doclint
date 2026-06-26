@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - `doclint completion <shell>` run in a terminal now offers to install the completion script to the conventional location for your shell, or prints clear manual steps if you decline — instead of only dumping the raw script. Piped or redirected (`source <(doclint completion zsh)`, `> file`) it still prints the raw script unchanged. `--print` forces the script; `--yes` installs without prompting.
+- Findings now show whether they're auto-fixable: the human format marks each fixable row (`*` safe, `~` unsafe-only) and the footer summarizes `N fixable with --fix`; the compact format prints the same count; JSON gains `fixable` (bool) and `fix` (`safe`|`unsafe`|`none`) fields.
 
 ### Changed
 - `no-trailing-spaces` now auto-fixes the unambiguous cases: a single stray trailing space and a whitespace-only line are stripped by `--fix` and `fmt` (Safe). A deliberate two-space hard line break is still never touched, and a run of three or more stays flag-only (the renderer turns it into a break, so the intent is ambiguous).

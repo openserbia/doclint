@@ -73,6 +73,30 @@ func TestHumanEmpty(t *testing.T) {
 	}
 }
 
+func TestFixMarkersAndCounts(t *testing.T) {
+	findings := []rule.Finding{
+		{Rule: "no-trailing-spaces", Path: "a.md", Line: 1, Col: 5, Message: "stray space", Severity: rule.Warning, Safety: rule.Safe},
+		{Rule: "table-column-count", Path: "a.md", Line: 3, Col: 1, Message: "ragged table", Severity: rule.Error, Safety: rule.NoFix},
+	}
+	var human bytes.Buffer
+	if err := (Human{NoColor: true}).Report(&human, findings); err != nil {
+		t.Fatal(err)
+	}
+	if out := human.String(); !strings.Contains(out, "* 1:5") {
+		t.Errorf("safe finding should carry a * fix marker on its row:\n%s", out)
+	} else if !strings.Contains(out, "1 fixable with --fix") {
+		t.Errorf("footer should report the fixable count:\n%s", out)
+	}
+
+	var jsonBuf bytes.Buffer
+	if err := (JSON{}).Report(&jsonBuf, findings); err != nil {
+		t.Fatal(err)
+	}
+	if s := jsonBuf.String(); !strings.Contains(s, `"fixable": true`) || !strings.Contains(s, `"fix": "safe"`) {
+		t.Errorf("json should expose the fixable/fix fields:\n%s", s)
+	}
+}
+
 func TestCompact(t *testing.T) {
 	var buf bytes.Buffer
 	if err := (Compact{NoColor: true}).Report(&buf, sample); err != nil {
