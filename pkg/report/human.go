@@ -3,64 +3,215 @@ package report
 import (
 	"fmt"
 	"io"
+	"os"
+	"sort"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/openserbia/doclint/pkg/rule"
 )
 
-// ANSI colors keyed by severity; disabled when NoColor is set.
+// Severity glyphs and the layout budget for the message column.
 const (
-	ansiReset  = "\033[0m"
-	ansiRed    = "\033[31m"
-	ansiYellow = "\033[33m"
-	ansiBlue   = "\033[34m"
-	ansiDim    = "\033[2m"
+	glyphError   = "✖"
+	glyphWarning = "⚠"
+	glyphInfo    = "ℹ"
+	glyphOK      = "✓"
+
+	msgMaxRunes = 70
+	ellipsis    = "…"
 )
 
-// Human renders colored `path:line:col [rule] severity message` lines.
+// Human renders findings grouped by file in an eslint-"stylish" layout: a bold
+// file-path header (the clickable anchor) followed by indented, column-aligned
+// finding rows, then a one-line problem summary. Styling is applied with
+// lipgloss; NoColor (or the NO_COLOR env var) yields plain, ANSI-free text.
 type Human struct{ NoColor bool }
 
-func (h Human) color(s rule.Severity) string {
-	if h.NoColor {
-		return ""
+// humanStyles bundles the lipgloss styles for one render pass. When color is
+// off every field is an attribute-less style, so Render is an identity — this
+// also strips bold/underline/faint, which the termenv Ascii profile alone does
+// not (it only degrades color).
+type humanStyles struct {
+	header lipgloss.Style
+	errG   lipgloss.Style
+	warnG  lipgloss.Style
+	infoG  lipgloss.Style
+	okG    lipgloss.Style
+	loc    lipgloss.Style
+	msg    lipgloss.Style
+	ruleN  lipgloss.Style
+}
+
+func (h Human) styles(w io.Writer) humanStyles {
+	r := lipgloss.NewRenderer(w)
+	noColor := h.NoColor || os.Getenv("NO_COLOR") != ""
+	if noColor {
+		r.SetColorProfile(termenv.Ascii)
 	}
+	plain := r.NewStyle()
+	st := humanStyles{
+		header: plain, errG: plain, warnG: plain, infoG: plain,
+		okG: plain, loc: plain, msg: plain, ruleN: plain,
+	}
+	if noColor {
+		return st
+	}
+	st.header = r.NewStyle().Bold(true).Underline(true)
+	st.errG = r.NewStyle().Foreground(lipgloss.Color("9"))
+	st.warnG = r.NewStyle().Foreground(lipgloss.Color("11"))
+	st.infoG = r.NewStyle().Foreground(lipgloss.Color("12"))
+	st.okG = r.NewStyle().Foreground(lipgloss.Color("10"))
+	st.loc = r.NewStyle().Faint(true)
+	st.ruleN = r.NewStyle().Faint(true)
+	return st
+}
+
+func (st humanStyles) glyph(s rule.Severity) string {
 	switch s {
 	case rule.Error:
-		return ansiRed
+		return st.errG.Render(glyphError)
 	case rule.Warning:
-		return ansiYellow
+		return st.warnG.Render(glyphWarning)
 	default:
-		return ansiBlue
+		return st.infoG.Render(glyphInfo)
 	}
 }
 
-func (h Human) reset() string {
-	if h.NoColor {
-		return ""
-	}
-	return ansiReset
+// lineWriter streams strings to an io.Writer, latching the first error so call
+// sites stay terse (every Write to the underlying writer is still checked).
+type lineWriter struct {
+	w   io.Writer
+	err error
 }
 
-func (h Human) dim() string {
-	if h.NoColor {
-		return ""
+func (lw *lineWriter) write(s string) {
+	if lw.err != nil {
+		return
 	}
-	return ansiDim
+	_, lw.err = io.WriteString(lw.w, s)
 }
 
-// Report writes each finding then a summary footer.
+// Report writes findings grouped by file, then a summary footer. Findings are
+// expected pre-sorted by path,line,col (the engine guarantees this).
 func (h Human) Report(w io.Writer, findings []rule.Finding) error {
-	for _, f := range findings {
-		if _, err := fmt.Fprintf(
-			w, "%s:%d:%d %s[%s]%s %s%s%s %s\n",
-			f.Path, f.Line, f.Col,
-			h.dim(), f.Rule, h.reset(),
-			h.color(f.Severity), f.Severity, h.reset(),
-			f.Message,
-		); err != nil {
-			return err
+	st := h.styles(w)
+	lw := &lineWriter{w: w}
+
+	if len(findings) == 0 {
+		lw.write(" " + st.okG.Render(glyphOK) + " no problems\n")
+		return lw.err
+	}
+
+	files := 0
+	for i := 0; i < len(findings); {
+		j := i
+		for j < len(findings) && findings[j].Path == findings[i].Path {
+			j++
+		}
+		if files > 0 {
+			lw.write("\n")
+		}
+		renderGroup(lw, st, findings[i:j])
+		files++
+		i = j
+	}
+	lw.write("\n")
+	renderFooter(lw, st, findings, files)
+	return lw.err
+}
+
+// renderGroup prints one file's header and its column-aligned finding rows.
+// Within the group, higher severities come first; line order is preserved
+// within a severity (a stable sort over already line-sorted input).
+func renderGroup(lw *lineWriter, st humanStyles, group []rule.Finding) {
+	lw.write(" " + st.header.Render(group[0].Path) + "\n")
+
+	ordered := make([]rule.Finding, len(group))
+	copy(ordered, group)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return ordered[i].Severity > ordered[j].Severity
+	})
+
+	locs := make([]string, len(ordered))
+	msgs := make([]string, len(ordered))
+	locW, msgW := 0, 0
+	for k, f := range ordered {
+		// The line:col token is kept literal and contiguous for IDE linkifying.
+		locs[k] = fmt.Sprintf("%d:%d", f.Line, f.Col)
+		msgs[k] = truncateRunes(f.Message, msgMaxRunes)
+		if n := len([]rune(locs[k])); n > locW {
+			locW = n
+		}
+		if n := len([]rune(msgs[k])); n > msgW {
+			msgW = n
 		}
 	}
+
+	for k, f := range ordered {
+		lw.write("  ")
+		lw.write(st.glyph(f.Severity))
+		lw.write("  ")
+		lw.write(st.loc.Render(locs[k]))
+		lw.write(strings.Repeat(" ", locW-len([]rune(locs[k]))))
+		lw.write("  ")
+		lw.write(st.msg.Render(msgs[k]))
+		lw.write(strings.Repeat(" ", msgW-len([]rune(msgs[k]))))
+		lw.write("  ")
+		lw.write(st.ruleN.Render(f.Rule))
+		lw.write("\n")
+	}
+}
+
+// renderFooter prints the trailing summary line; zero-count severities are
+// omitted and the leading glyph reflects the worst severity present.
+func renderFooter(lw *lineWriter, st humanStyles, findings []rule.Finding, files int) {
 	errs, warns, infos := counts(findings)
-	_, err := fmt.Fprintf(w, "\n%d error(s), %d warning(s), %d info\n", errs, warns, infos)
-	return err
+	total := len(findings)
+
+	var glyph string
+	switch {
+	case errs > 0:
+		glyph = st.errG.Render(glyphError)
+	case warns > 0:
+		glyph = st.warnG.Render(glyphWarning)
+	default:
+		glyph = st.infoG.Render(glyphInfo)
+	}
+
+	parts := []string{fmt.Sprintf("%d %s", total, plural(total, "problem"))}
+	if errs > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", errs, plural(errs, "error")))
+	}
+	if warns > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", warns, plural(warns, "warning")))
+	}
+	if infos > 0 {
+		parts = append(parts, fmt.Sprintf("%d info", infos))
+	}
+	parts = append(parts, fmt.Sprintf("across %d %s", files, plural(files, "file")))
+
+	lw.write(" " + glyph + " " + strings.Join(parts, " · ") + "\n")
+}
+
+// truncateRunes shortens s to at most maxRunes runes (rune-aware so multibyte
+// content stays valid), appending an ellipsis when it trims.
+func truncateRunes(s string, maxRunes int) string {
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	if maxRunes <= 1 {
+		return string(r[:maxRunes])
+	}
+	return string(r[:maxRunes-1]) + ellipsis
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return word
+	}
+	return word + "s"
 }

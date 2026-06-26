@@ -28,7 +28,7 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 		Version:       version + " (commit " + commit + ", built " + date + ")",
 	}
 	root.PersistentFlags().StringVar(&opts.ConfigPath, "config", "", "path to .doclint.yaml (default: discovered)")
-	root.PersistentFlags().StringVar(&opts.Format, "format", "human", "output format: human|json")
+	root.PersistentFlags().StringVar(&opts.Format, "format", "human", "output format: human|compact|json (human auto-falls back to compact when piped)")
 	root.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	root.PersistentFlags().BoolVar(&opts.Quiet, "quiet", false, "suppress non-finding output")
 

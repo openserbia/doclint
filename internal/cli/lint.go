@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/openserbia/doclint/pkg/engine"
 	"github.com/openserbia/doclint/pkg/report"
@@ -62,7 +63,7 @@ func newLintCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := pickReporter(opts).Report(cmd.OutOrStdout(), res.Findings); err != nil {
+			if err := pickReporter(opts, cmd.Flags().Changed("format")).Report(cmd.OutOrStdout(), res.Findings); err != nil {
 				return err
 			}
 			if shouldFail(res, maxWarn) {
@@ -94,9 +95,24 @@ func shouldFail(res *engine.Result, maxWarn int) bool {
 	return warns > maxWarn
 }
 
-func pickReporter(opts *Options) report.Reporter {
-	if opts.Format == "json" {
+func pickReporter(opts *Options, formatSet bool) report.Reporter {
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+	// Never emit ANSI to something that isn't a terminal — keeps piped/CI logs
+	// and redirected files free of escape codes.
+	noColor := opts.NoColor || !isTTY
+	switch opts.Format {
+	case "json":
 		return report.JSON{}
+	case "compact":
+		return report.Compact{NoColor: noColor}
+	default:
+		// The default human format auto-falls back to the flat compact format
+		// when stdout is not an interactive terminal (pipes, CI, IDE log
+		// capture) so machine consumers and grep stay happy. An explicit
+		// --format human is always honored (but still color-free off-terminal).
+		if !formatSet && !isTTY {
+			return report.Compact{NoColor: noColor}
+		}
+		return report.Human{NoColor: noColor}
 	}
-	return report.Human{NoColor: opts.NoColor}
 }
