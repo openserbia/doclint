@@ -30,6 +30,12 @@ default: standard
 # disable:
 #   - blanks-around-lists
 
+# Default lint/fmt targets (relative to this file) used when you run doclint
+# with no path arguments:
+# paths:
+#   - content
+#   - data
+
 # Override a rule's severity (error | warning | info):
 settings:
   details-blank-line:

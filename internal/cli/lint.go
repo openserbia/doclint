@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -39,6 +40,7 @@ func newLintCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			args = resolveTargets(args, cfg)
 			if fix || diff {
 				return runFix(cmd, eng, opts, args, unsafeFixes, diff)
 			}
@@ -52,6 +54,20 @@ func newLintCmd(opts *Options) *cobra.Command {
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "disable the lint result cache")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "cache directory (default: per-user cache dir)")
 	return cmd
+}
+
+// resolveTargets falls back to the config's `paths:` (each relative to the
+// config file's directory) when no paths are given on the CLI, so `doclint lint`
+// with no args lints the configured targets.
+func resolveTargets(args []string, cfg *config.Config) []string {
+	if len(args) > 0 || len(cfg.Paths) == 0 {
+		return args
+	}
+	out := make([]string, len(cfg.Paths))
+	for i, p := range cfg.Paths {
+		out[i] = filepath.Join(cfg.Dir, p)
+	}
+	return out
 }
 
 // runFix applies fixes (or previews them with --diff) and prints the changed files.

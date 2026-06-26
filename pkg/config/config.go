@@ -43,6 +43,7 @@ type Config struct {
 	Disable  []string               `yaml:"disable"`
 	Settings map[string]RuleSetting `yaml:"settings"`
 	Ignore   []string               `yaml:"ignore"`
+	Paths    []string               `yaml:"paths"` // default lint/fmt targets when none given on the CLI
 	Custom   []CustomRule           `yaml:"custom"`
 
 	Dir string `yaml:"-"` // directory of the config file (relative-path base)

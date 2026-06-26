@@ -31,7 +31,7 @@ func newFmtCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			files, err := eng.MarkdownFiles(args)
+			files, err := eng.MarkdownFiles(resolveTargets(args, cfg))
 			if err != nil {
 				return err
 			}

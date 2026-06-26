@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Lint result caching: `doclint lint` memoizes per-file findings under `os.UserCacheDir()/doclint`, keyed by a schema + doclint-version + config-hash + path + file-content hash, so re-linting unchanged files is near-instant. `--no-cache` disables it, `--cache-dir` overrides the location, and `doclint cache status` / `doclint cache clean` inspect or clear it. Only plain `lint` caches — `--fix`, `--diff`, and `fmt` always run fresh.
+- `paths:` config field — default lint/fmt targets (each relative to the config file) used when `doclint lint`/`fmt` is run with no path arguments; explicit CLI paths still override. (The existing `ignore:` field already takes doublestar globs.)
 
 ## [0.3.0] - 2026-06-26
 

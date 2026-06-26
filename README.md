@@ -261,6 +261,9 @@ skipping drafts.
 default: standard            # all | standard | none
 enable: []                   # force-enable specific rules by name
 disable: []                  # force-disable specific rules by name
+paths:                       # default lint/fmt targets when none are passed on the CLI
+  - content
+  - data
 settings:
   details-blank-line:
     severity: error
