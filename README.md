@@ -52,8 +52,9 @@ doclint init
 doclint list
 doclint explain details-blank-line
 
-# Shell completion — bash|zsh|fish|powershell
-source <(doclint completion zsh)
+# Shell completion (bash|zsh|fish|powershell) — interactive install, or pipe the script
+doclint completion zsh             # in a terminal: offers to install, or shows manual steps
+source <(doclint completion zsh)   # or load the raw script directly
 ```
 
 `doclint` walks every file under the paths you pass, so scope it to your content
@@ -224,15 +225,27 @@ and data directories (or use `ignore` globs in config).
 
 - **no-trailing-spaces** (markdownlint MD009) — a line should not end in stray
   trailing spaces. Exactly **two** trailing spaces are a markdown hard line break
-  (`<br>`) and are deliberately left alone; everything else is suspect: a single
-  trailing space is invisible and renders as nothing, three or more collapse back
-  to the same two-space break (so the extras are meaningless), and a
-  whitespace-only line has no content for a break to attach to. `doclint` flags
-  these (a warning) with **no autofix**: the `fmt` pass refuses to strip trailing
-  whitespace because a blanket trim would silently delete the two-space hard break
-  this rule protects, so the line is surfaced for a human to fix. Lines inside a
-  fenced code block are significant content and are ignored. Flagged (the `·`
-  marks a trailing space) — `end·` and `tail···`, but not `break··`.
+  (`<br>`) and are deliberately left alone. A single trailing space (invisible,
+  renders as nothing) and a whitespace-only line (no content for a break to attach
+  to) are unambiguous, so `doclint` strips them with a safe fix that `--fix`/`fmt`
+  apply — and that targeted fix never touches the two-space hard break. A run of
+  three or more is flagged with **no fix**: the renderer collapses it back to a
+  two-space break, so whether the author wanted a (sloppy) break or stray spaces is
+  ambiguous and a human should decide. Lines inside a fenced code block are
+  significant content and are ignored. Flagged (the `·` marks a trailing space) —
+  `end·` (fixed) and `tail···` (flag-only), but not `break··`.
+
+- **no-broken-anchor** — an in-page link to a fragment, `[text](#some-heading)`,
+  should resolve to a heading in the same document. Unlike a Hugo `{{< relref >}}`
+  (which fails the build on a missing target), a raw `#fragment` link renders fine
+  even when no such heading exists — the jump just silently does nothing. `doclint`
+  computes every heading's id the way Hugo's default GitHub-style anchorize does
+  (Unicode-aware, so Cyrillic headings resolve), honoring an explicit
+  `## Heading {#id}`, the `-1/-2` suffixes Hugo adds to duplicate headings, and the
+  anchors shortcodes generate (`anchor="…"` parameters and `{{< step >}}` →
+  `#step-N`). It flags any in-page link whose fragment matches none of them (a
+  warning, no autofix — the intended target can't be guessed). Cross-page
+  `page#frag` links and links inside fenced code are not checked.
 
 ### Custom (declarative)
 
@@ -290,8 +303,12 @@ safe fixes only; `--unsafe-fixes` opts into the rest. Plain `lint` never mutates
 click-to-jump in editors), `--format compact` (one flat `path:line:col` line per
 finding, for CI and grep), or `--format json`. The default `human` format
 auto-falls back to `compact` when stdout is not a terminal, so piped/CI output
-stays parseable and color-free. A malformed `.doclint.yaml` fails preflight with
-a clear, actionable message. Exit `0` when clean, `1` on error-severity findings
+stays parseable and color-free. Each auto-fixable finding is marked (`*` safe,
+`~` unsafe), the summary reports how many are `fixable with --fix`, and the human
+output ends with a `learn how to fix:` list linking each rule that fired to its
+reference page (also printed by `explain`, and a `doc_url` field in JSON). A
+malformed `.doclint.yaml` fails preflight with a clear, actionable message. Exit
+`0` when clean, `1` on error-severity findings
 (warnings are advisory; use `--max-warnings N` to tighten), `2` on a
 configuration or internal error.
 
