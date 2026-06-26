@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-06-26
+
+### Changed
+- `list-marker-indent` now also re-indents a **margin closing shortcode** — a `{{< /details >}}` sitting at column 0 after an item whose bullets are already correct (the closer de-indented out to the left margin). The v0.5.2 body scan stops at any line back at the marker's indent, so such a closer was excluded and left at 0; it is now detected and lifted to the content column. A shortcode-name match guards a shortcode that wraps the whole list (its closer legitimately at the margin) so it is never touched. Tested for both the fix and the wrapping-shortcode non-case.
+
 ## [0.5.2] - 2026-06-26
 
 ### Changed

@@ -14,6 +14,10 @@ import (
 // column — where the item's body must indent to — can be computed.
 var listMarkerRe = regexp.MustCompile(`^( {0,3})([-*+]|\d{1,9}[.)]) `)
 
+// shortcodeCloseRe matches a line that is only a paired-shortcode closing tag
+// (angle or percent form), capturing the shortcode name.
+var shortcodeCloseRe = regexp.MustCompile(`^\s*{{[<%]\s*/(\w+)\s*[%>]}}\s*$`)
+
 // ListMarkerIndent flags a list item whose body is indented to fewer columns than
 // the marker requires, which makes the nested content escape the item and (for an
 // ordered list) restarts the numbering.
@@ -67,10 +71,14 @@ func (r ListMarkerIndent) Check(doc *document.Document, report func(rule.Finding
 		markerIndent := len(m[1])
 		contentCol := markerIndent + len(m[2]) + 1
 		end, base := bodyExtent(lines, i, markerIndent)
-		if base > markerIndent && base < contentCol {
-			r.flag(doc, lines, i, end, contentCol, contentCol-base, report)
+		closer := trailingCloserIdx(lines, i, end, contentCol)
+		if (base > markerIndent && base < contentCol) || closer >= 0 {
+			r.flag(doc, lines, i, end, contentCol, closer, report)
 		}
 		i = end + 1
+		if closer >= i {
+			i = closer + 1
+		}
 	}
 }
 
@@ -107,18 +115,57 @@ func bodyExtent(lines []document.Line, i, markerIndent int) (end, base int) {
 // set to the content column; the list block from the first list item onward is
 // shifted by one delta so its relative nesting is preserved. Splitting the two is
 // what keeps an already-correct leading paragraph from being over-indented.
-// flag reports the under-indented item with an Unsafe fix from bodyReindentFixes.
-func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, end, contentCol, delta int, report func(rule.Finding)) {
+// flag reports the misindented item with an Unsafe fix: the body re-indent from
+// bodyReindentFixes plus, when present, the margin closing shortcode (closer).
+func (r ListMarkerIndent) flag(doc *document.Document, lines []document.Line, start, end, contentCol, closer int, report func(rule.Finding)) {
+	fixes := bodyReindentFixes(lines, start, end, contentCol)
+	if closer >= 0 {
+		if edit, ok := setIndent(lines[closer], contentCol); ok {
+			fixes = append(fixes, edit)
+		}
+	}
 	report(rule.Finding{
 		Rule:     "list-marker-indent",
 		Path:     doc.Path,
 		Line:     lines[start].Num,
 		Col:      1,
-		Message:  fmt.Sprintf("list item body is under-indented; indent it %d more space(s) to the marker's content column", delta),
+		Message:  fmt.Sprintf("list item body must indent to the marker's content column (%d spaces)", contentCol),
 		Severity: rule.Warning,
 		Safety:   rule.Unsafe,
-		Fixes:    bodyReindentFixes(lines, start, end, contentCol),
+		Fixes:    fixes,
 	})
+}
+
+// trailingCloserIdx returns the index of a bare shortcode-closing line just past
+// the item body, sitting below contentCol and closing a shortcode the item opened
+// on its own line (e.g. "6. {{< details >}}" … "{{< /details >}}" at the margin).
+// bodyExtent stops before such a line, so the closer is re-indented separately.
+// The name match keeps a shortcode that wraps the whole list (its closer rightly
+// at the margin) from being touched.
+func trailingCloserIdx(lines []document.Line, itemIdx, end, contentCol int) int {
+	j := end + 1
+	for j < len(lines) && isBlank(lines[j].Text) {
+		j++
+	}
+	if j >= len(lines) {
+		return -1
+	}
+	m := shortcodeCloseRe.FindStringSubmatch(lines[j].Text)
+	if m == nil || leadingWhitespace(lines[j].Text) >= contentCol {
+		return -1
+	}
+	if !opensShortcodeNamed(lines[itemIdx].Text, m[1]) {
+		return -1
+	}
+	return j
+}
+
+// opensShortcodeNamed reports whether text opens the named paired shortcode (angle
+// or percent form) without also closing it on the same line.
+func opensShortcodeNamed(text, name string) bool {
+	opens := strings.Contains(text, "{{< "+name+" ") || strings.Contains(text, "{{% "+name+" ")
+	closes := strings.Contains(text, "{{< /"+name) || strings.Contains(text, "{{% /"+name)
+	return opens && !closes
 }
 
 // bodyReindentFixes re-indents an item body (lines after start, through end) to

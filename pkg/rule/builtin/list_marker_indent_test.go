@@ -75,6 +75,30 @@ func TestListMarkerIndent_FixesTrailingCloser(t *testing.T) {
 	}
 }
 
+// The bullets are correct (3); only the closing shortcode sits at the margin (0).
+// bodyExtent excludes a column-0 line, so the closer is handled separately and
+// lifted to the content column.
+func TestListMarkerIndent_FixesMarginCloser(t *testing.T) {
+	raw := []byte("6. {{< details \"x\" >}}\n   - a\n   - b\n{{< /details >}}\n7. next\n")
+	got := listMarkerIndentFindings(t, raw)
+	if len(got) != 1 {
+		t.Fatalf("got %d findings, want 1", len(got))
+	}
+	want := "6. {{< details \"x\" >}}\n   - a\n   - b\n   {{< /details >}}\n7. next\n"
+	if fixed := string(applyAll(t, raw, got)); fixed != want {
+		t.Errorf("fixed = %q\n want %q", fixed, want)
+	}
+}
+
+// A shortcode that wraps the whole list closes at the margin legitimately; the
+// item line did not open it, so it must not be touched.
+func TestListMarkerIndent_IgnoresWrappingShortcodeCloser(t *testing.T) {
+	raw := []byte("{{< rawhtml >}}\n1. item\n   - a\n{{< /rawhtml >}}\n")
+	if got := listMarkerIndentFindings(t, raw); len(got) != 0 {
+		t.Fatalf("got %d findings, want 0: %+v", len(got), got)
+	}
+}
+
 func TestListMarkerIndent_IgnoresWellIndented(t *testing.T) {
 	raw := []byte("1. {{< details \"x\" >}}\n   - a\n   {{< /details >}}\n1. next\n")
 	if got := listMarkerIndentFindings(t, raw); len(got) != 0 {
