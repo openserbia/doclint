@@ -32,10 +32,15 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	root.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	root.PersistentFlags().BoolVar(&opts.Quiet, "quiet", false, "suppress non-finding output")
 
+	_ = root.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return []string{"human", "compact", "json"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	root.AddCommand(newLintCmd(opts))
 	root.AddCommand(newFmtCmd(opts))
 	root.AddCommand(newExplainCmd())
 	root.AddCommand(newListCmd(opts))
+	root.AddCommand(newInitCmd())
 	return root
 }
 
@@ -59,5 +64,18 @@ func loadConfig(opts *Options) (*config.Config, *rule.Registry, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := config.Validate(cfg, registryRuleNames(reg)); err != nil {
+		return nil, nil, err
+	}
 	return cfg, reg, nil
+}
+
+// registryRuleNames returns the built-in rule names in registration order.
+func registryRuleNames(reg *rule.Registry) []string {
+	all := reg.All()
+	names := make([]string, len(all))
+	for i, r := range all {
+		names[i] = r.Meta().Name
+	}
+	return names
 }
