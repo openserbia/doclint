@@ -15,11 +15,12 @@ type Options struct {
 	Format     string
 	NoColor    bool
 	Quiet      bool
+	Version    string // doclint version, for the cache key
 }
 
 // NewRootCmd builds the command tree. version/commit/date come from main.
 func NewRootCmd(version, commit, date string) *cobra.Command {
-	opts := &Options{}
+	opts := &Options{Version: version}
 	root := &cobra.Command{
 		Use:           "doclint",
 		Short:         "Lint, autofix and format Hugo markdown content and data files",
@@ -48,6 +49,7 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newCompletionCmd(root))
 	root.AddCommand(newDocsCmd())
+	root.AddCommand(newCacheCmd())
 	return root
 }
 

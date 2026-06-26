@@ -15,6 +15,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/openserbia/doclint/pkg/cache"
 	"github.com/openserbia/doclint/pkg/config"
 	"github.com/openserbia/doclint/pkg/document"
 	"github.com/openserbia/doclint/pkg/rule"
@@ -28,6 +29,19 @@ type Engine struct {
 	cfg     *config.Config
 	rules   []rule.Rule
 	builtin map[string]bool // names of built-in rules (those with doc pages)
+
+	cache      *cache.Cache // nil unless caching is enabled
+	version    string
+	configHash string
+}
+
+// UseCache enables per-file finding caching for plain lint runs. version and
+// configHash join the per-file content hash in the cache key, so a new doclint
+// build or an edited config invalidates stale entries.
+func (e *Engine) UseCache(c *cache.Cache, version, configHash string) {
+	e.cache = c
+	e.version = version
+	e.configHash = configHash
 }
 
 // Result is the outcome of a Run.
@@ -146,6 +160,22 @@ func (e *Engine) lintFile(path string, format document.Format) ([]rule.Finding, 
 	if err != nil {
 		return nil, err
 	}
+	if e.cache == nil {
+		return e.lintBytes(path, format, raw)
+	}
+	key := cache.Key(e.version, e.configHash, path, raw)
+	if cached, ok := e.cache.Get(key); ok {
+		return cached, nil
+	}
+	findings, err := e.lintBytes(path, format, raw)
+	if err != nil {
+		return nil, err
+	}
+	e.cache.Put(key, findings)
+	return findings, nil
+}
+
+func (e *Engine) lintBytes(path string, format document.Format, raw []byte) ([]rule.Finding, error) {
 	doc, err := document.Parse(format, path, raw)
 	if err != nil {
 		return nil, err
