@@ -14,6 +14,7 @@ import (
 	"github.com/openserbia/doclint/pkg/engine"
 	"github.com/openserbia/doclint/pkg/report"
 	"github.com/openserbia/doclint/pkg/rule"
+	"github.com/openserbia/doclint/pkg/rule/builtin"
 )
 
 func newLintCmd(opts *Options) *cobra.Command {
@@ -24,6 +25,7 @@ func newLintCmd(opts *Options) *cobra.Command {
 		maxWarn     int
 		noCache     bool
 		cacheDir    string
+		onlyRules   []string
 	)
 	cmd := &cobra.Command{
 		Use:   "lint [paths...]",
@@ -40,6 +42,11 @@ func newLintCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(onlyRules) > 0 {
+				if err := eng.Restrict(onlyRules); err != nil {
+					return err
+				}
+			}
 			args = resolveTargets(args, cfg)
 			if fix || diff {
 				return runFix(cmd, eng, opts, args, unsafeFixes, diff)
@@ -53,6 +60,12 @@ func newLintCmd(opts *Options) *cobra.Command {
 	cmd.Flags().IntVar(&maxWarn, "max-warnings", -1, "fail if warnings exceed N (-1 = never)")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "disable the lint result cache")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "cache directory (default: per-user cache dir)")
+	cmd.Flags().StringSliceVar(&onlyRules, "rule", nil, "restrict to specific rule(s) by name (repeatable); reports/fixes only those")
+	_ = cmd.RegisterFlagCompletionFunc("rule", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		reg := rule.NewRegistry()
+		builtin.Register(reg)
+		return registryRuleNames(reg), cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 

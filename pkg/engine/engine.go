@@ -116,6 +116,30 @@ func (e *Engine) addCustomRules(customs []config.CustomRule) error {
 	return nil
 }
 
+// Restrict limits the active rules to those named, so `lint --rule X` reports or
+// fixes only X. It errors on a name that is not an active rule (unknown, or
+// disabled by config). Custom rule ids are matched too.
+func (e *Engine) Restrict(names []string) error {
+	want := toSet(names)
+	have := make(map[string]bool, len(e.rules))
+	for _, r := range e.rules {
+		have[r.Meta().Name] = true
+	}
+	for n := range want {
+		if !have[n] {
+			return fmt.Errorf("unknown or inactive rule %q", n)
+		}
+	}
+	kept := make([]rule.Rule, 0, len(want))
+	for _, r := range e.rules {
+		if want[r.Meta().Name] {
+			kept = append(kept, r)
+		}
+	}
+	e.rules = kept
+	return nil
+}
+
 // Run lints every discovered file under paths and returns sorted findings.
 func (e *Engine) Run(ctx context.Context, paths []string) (*Result, error) {
 	files, err := e.discover(paths)
