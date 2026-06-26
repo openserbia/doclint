@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-26
+
 ### Added
 - New built-in `list-marker-indent` rule: flags a list item whose body is indented to fewer columns than the marker's content column (e.g. a 2-space body under a `1. ` item, which needs 3) — the foot-gun that makes an ordered list's numbering restart (`1. 1. 1.`). Warning severity; an **unsafe** autofix (`lint --fix --unsafe-fixes`) re-indents the body to the content column, preserving nested levels.
 - Each rule now carries a human-readable `Title` and a before/after `Example`, rendered into its `docs/rules/<rule>.md` page (title heading, machine name, and "Flagged"/"Fixed" snippets). `doclint docs` also (re)generates a rule reference table into `README.md` between `<!-- rules:start -->` / `<!-- rules:end -->` markers, so the README can no longer drift from the rules.
