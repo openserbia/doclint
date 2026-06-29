@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-29
+
+### Changed
+- `no-broken-anchor` now validates **cross-page** anchors, not just in-page ones. A link whose fragment targets another page — a raw `[t](/section/page/#frag)`, or a Hugo `{{< relref "/section/page" >}}#frag` / `{{< relref "/section/page#frag" >}}` (anchor appended after the close, or inside the argument) — is resolved to the target markdown file under the nearest `content/` (or `content/<lang>`) directory and its fragment checked against that page's headings. This catches a silent-failure class Hugo itself misses: a `relref` build-fails on a bad page **path** but not on a bad **fragment**, so a wrong anchor renders fine and the jump does nothing. relref references are matched context-free, so they are found inside a markdown link, an HTML `href="…"` attribute, or bare text alike. Multilingual `content/<lang>` layouts and leaf/branch bundles (`index.md`/`_index.md`) are handled. Anything that cannot be resolved to a local file — a missing page, an external URL, a relative or named-parameter relref, or a page whose URL is remapped via `slug`/`url` front matter — is left unchecked, so the rule never guesses. Still no autofix (the intended target cannot be inferred).
+
 ## [0.5.3] - 2026-06-26
 
 ### Changed
