@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `fmt` now re-indents Hugo shortcode tag lines by nesting depth (`shortcode-indent` pass). A line qualifies when its trimmed form starts with `{{<` or `{{%` — so shortcodes inline in a list item (`- {{< video >}}`) or used as a link target are left untouched. Depth tracking uses a two-pass approach: the first pass collects every shortcode name that has an explicit closing tag anywhere in the document; only those names are treated as block openers that increase depth. Single-tag shortcodes (`figure`, `video`, `link-card`) have no closer and are re-indented at the current depth without pushing children deeper. Multi-line parameter blocks (`{{< uplatnica\nkey="v"\n>}}`) are emitted as-is — re-indenting the opener would misalign its continuation lines — but the depth counter is updated when the closing `>}}` is reached. Content lines between shortcode tags are **never modified**: markdown is indentation-sensitive (4+ spaces = code block), and content inside shortcodes often carries continuation indent from a surrounding list. The pass is idempotent.
+- `fmt` extension point: formatting passes are now registered into a `FormatRegistry` instead of being hardcoded in `Format`. `FormatWith(doc, reg)` accepts a custom registry; `Format(doc)` (unchanged signature) delegates to `FormatWith(doc, DefaultFormatRegistry())`. `TableAlignPass` and `ShortcodeIndentPass` implement the `FormatPass` interface (`Name() string`, `Apply([]byte) []byte`) in their own files. Adding a new pass requires one new file plus one `reg.Register(…)` call in `DefaultFormatRegistry()` — `format.go` is not touched.
+
 ## [0.6.0] - 2026-06-29
 
 ### Changed

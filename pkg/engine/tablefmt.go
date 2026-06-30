@@ -8,6 +8,13 @@ import (
 	"github.com/openserbia/doclint/pkg/document"
 )
 
+// TableAlignPass is a FormatPass that aligns the column widths of well-formed
+// GFM tables. Malformed tables (row cell-count mismatch) are left untouched.
+type TableAlignPass struct{}
+
+func (TableAlignPass) Name() string            { return "table-align" }
+func (TableAlignPass) Apply(src []byte) []byte { return formatTables(src) }
+
 // minColWidth is the minimum rendered width of a table column, so even a
 // single-character column keeps a readable delimiter (`---`, `:-:`).
 const minColWidth = 3
