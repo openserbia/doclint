@@ -13,14 +13,41 @@ import (
 // permits outside fenced code blocks; any run longer than this is collapsed.
 const maxConsecutiveBlanks = 1
 
-// Format applies the deterministic, idempotent whitespace pass: it collapses
-// 3+ consecutive blank lines (outside fenced code) to one, ensures a single
-// trailing newline, applies the always-safe structural fixes, and aligns the
-// columns of well-formed GFM tables. The structural fixes include
-// no-trailing-spaces' targeted strip of a single stray trailing space and of a
-// whitespace-only line; a deliberate two-space hard line break is never touched
-// (the rule does not flag it) and an ambiguous 3+ run is left for a human.
+// Format applies the full deterministic, idempotent formatting pass using the
+// built-in default registry. See FormatWith for details on the individual steps.
 func Format(doc *document.Document) []byte {
+	return FormatWith(doc, DefaultFormatRegistry())
+}
+
+// FormatWith runs the core formatting steps followed by every pass in reg.
+// The core steps are:
+//
+//  1. Apply always-safe structural fixes (blank lines around fences/lists/
+//     headings, ATX-heading space, details blank line, trailing spaces).
+//  2. Collapse consecutive blank lines outside fenced code to at most one.
+//  3. Ensure a single trailing newline.
+//
+// Registered passes then run in order, each receiving the previous pass's
+// output. Built-in passes (registered by DefaultFormatRegistry) add:
+//
+//  4. table-align      — aligns GFM table column widths
+//  5. shortcode-indent — re-indents Hugo shortcode tag lines by nesting depth
+//
+// Every step is idempotent; the structural fixes include no-trailing-spaces'
+// targeted strip of a single stray trailing space or whitespace-only line —
+// a deliberate two-space hard line break is never touched and an ambiguous 3+
+// run is left for a human.
+func FormatWith(doc *document.Document, reg *FormatRegistry) []byte {
+	out := formatCore(doc)
+	for _, p := range reg.All() {
+		out = p.Apply(out)
+	}
+	return out
+}
+
+// formatCore runs the three always-on steps that are too intertwined with the
+// document model to be ordinary FormatPass implementations.
+func formatCore(doc *document.Document) []byte {
 	// 1. Apply the safe structural fix(es) first, on the raw bytes.
 	fixes := safeStructuralFixes(doc)
 	raw := doc.Raw
@@ -54,11 +81,7 @@ func Format(doc *document.Document) []byte {
 
 	// 3. Single trailing newline.
 	out := bytes.TrimRight(b.Bytes(), "\n")
-	out = append(out, '\n')
-
-	// 4. Align well-formed GFM tables (idempotent; malformed tables untouched).
-	out = formatTables(out)
-	return out
+	return append(out, '\n')
 }
 
 // safeStructuralFixes collects the always-safe, content-neutral fixes that fmt
