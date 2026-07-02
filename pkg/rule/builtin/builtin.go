@@ -17,4 +17,5 @@ func Register(reg *rule.Registry) {
 	reg.Register(NoTrailingSpaces{})
 	reg.Register(NoBrokenAnchor{})
 	reg.Register(ListMarkerIndent{})
+	reg.Register(BlanksAroundCenter{})
 }
