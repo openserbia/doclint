@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-03
+
 ### Added
 - New built-in `blanks-around-center` rule: flags a `<center>…</center>` block that is not surrounded by blank lines. Goldmark (the parser Hugo uses) treats `<center>` as an HTML block whose scope runs until the next blank line; when markdown content (such as a list item `- text`) is placed directly after `</center>` without a separating blank, it is absorbed into the HTML block and never renders as markdown. Both sides are checked — missing blank before `<center>` and after `</center>`. Tags are matched case-insensitively and may be indented. Fenced code is skipped. Warning severity; safe autofix inserts a blank line on the offending side. The document's first and last lines are exempt.
 - New built-in `blanks-around-thematic-break` rule: flags a thematic break (`---`, `***`, `___`, or spaced variants such as `- - -`) that is not surrounded by blank lines. Without the surrounding blank, `---` can be re-parsed as a setext heading underline instead of a horizontal rule, causing the intended separator to disappear. Hugo shortcode lines (`{{< … >}}`) immediately before `---` are recognised as block-level constructs (not paragraph text), so the `---` is still correctly flagged even though `isSetextText` would otherwise accept the shortcode line as heading text. Warning severity; safe autofix inserts a blank line on the offending side. Setext heading underlines — a `---` directly following plain paragraph text — are excluded (handled by `blanks-around-headings`). Fenced code and frontmatter `---` delimiters are never touched.
