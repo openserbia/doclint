@@ -76,16 +76,7 @@ func formatShortcodeIndent(src []byte) []byte {
 		if inMultilineTag {
 			out.WriteString(ln.Text)
 			out.WriteByte('\n')
-			switch {
-			case strings.HasSuffix(t, "/>}}"):
-				// Explicit self-closing — depth unchanged regardless.
-				inMultilineTag = false
-			case strings.HasSuffix(t, ">}}") || strings.HasSuffix(t, "%}}"):
-				inMultilineTag = false
-				if multilineIsBlock {
-					depth++
-				}
-			}
+			inMultilineTag, depth = scHandleMultilineContinuation(t, multilineIsBlock, depth)
 			continue
 		}
 
@@ -144,6 +135,23 @@ func formatShortcodeIndent(src []byte) []byte {
 	}
 
 	return out.Bytes()
+}
+
+// scHandleMultilineContinuation processes a line inside a multi-line shortcode
+// tag parameter block. Returns (stillInMultiline, updatedDepth).
+func scHandleMultilineContinuation(trimmed string, isBlock bool, depth int) (stillOpen bool, newDepth int) {
+	switch {
+	case strings.HasSuffix(trimmed, "/>}}"):
+		// Explicit self-closing — depth unchanged regardless.
+		return false, depth
+	case strings.HasSuffix(trimmed, ">}}") || strings.HasSuffix(trimmed, "%}}"):
+		if isBlock {
+			depth++
+		}
+		return false, depth
+	default:
+		return true, depth
+	}
 }
 
 // scCollectClosedNames returns the set of shortcode names that have at least one
