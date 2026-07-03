@@ -99,10 +99,19 @@ func formatShortcodeIndent(src []byte) []byte {
 
 		switch {
 		case scIsCloser(t):
-			depth = max(0, depth-1)
-			out.WriteString(strings.Repeat(scIndentUnit, depth))
-			out.WriteString(t)
-			out.WriteByte('\n')
+			if depth == 0 {
+				// The matching opener was not a pure-tag line (e.g. inline
+				// in a list item: "1. {{< details >}}"), so it never
+				// incremented depth. Preserve the markdown-structural
+				// indent instead of stripping it to column 0.
+				out.WriteString(ln.Text)
+				out.WriteByte('\n')
+			} else {
+				depth--
+				out.WriteString(strings.Repeat(scIndentUnit, depth))
+				out.WriteString(t)
+				out.WriteByte('\n')
+			}
 
 		case scIsSelfClosing(t):
 			// Explicit "/>}}" — never increments depth.

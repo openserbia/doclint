@@ -381,6 +381,39 @@ func TestSCFmt_RealElectronSignatureBlock(t *testing.T) {
 	scIdempotent(t, in)
 }
 
+// TestSCFmt_ListNestedShortcodePreservesIndent: when a shortcode opens inline
+// in a list item ("1. {{< details >}}"), the opener is not a pure-tag line, so
+// the pass never increments depth. The closer must preserve its original
+// markdown-structural indent instead of being de-indented to column 0.
+func TestSCFmt_ListNestedShortcodePreservesIndent(t *testing.T) {
+	in := "" +
+		"1. {{< details \"Заполненная форма\" >}}\n" +
+		"   - Форму выдают на месте\n" +
+		"   - Заполненный пример\n" +
+		"   {{< /details >}}\n" +
+		"2. {{< details \"Бели картон\" >}}\n" +
+		"   - Что-то тут\n" +
+		"   {{< /details >}}\n"
+	// Both closers keep their 3-space list-continuation indent.
+	if got := scfmt(in); got != in {
+		t.Errorf("got:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_ListNestedAtColumnZero: closer at column 0 inside a list (the
+// original indent the author wrote) is also preserved — the pass does not
+// add indent it cannot justify from shortcode depth alone.
+func TestSCFmt_ListNestedAtColumnZero(t *testing.T) {
+	in := "" +
+		"1. {{< details \"X\" >}}\n" +
+		"   - Item\n" +
+		"{{< /details >}}\n"
+	if got := scfmt(in); got != in {
+		t.Errorf("got:\n%s\nwant:\n%s", got, in)
+	}
+}
+
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener
 // must not panic or produce negative depth.
 func TestSCFmt_DepthNeverGoesNegative(t *testing.T) {
