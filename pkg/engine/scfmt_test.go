@@ -401,17 +401,63 @@ func TestSCFmt_ListNestedShortcodePreservesIndent(t *testing.T) {
 	scIdempotent(t, in)
 }
 
-// TestSCFmt_ListNestedAtColumnZero: closer at column 0 inside a list (the
-// original indent the author wrote) is also preserved — the pass does not
-// add indent it cannot justify from shortcode depth alone.
+// TestSCFmt_ListNestedAtColumnZero: closer at column 0 inside a list is
+// re-indented to the list-continuation column (3 spaces for "1. ").
 func TestSCFmt_ListNestedAtColumnZero(t *testing.T) {
 	in := "" +
 		"1. {{< details \"X\" >}}\n" +
 		"   - Item\n" +
 		"{{< /details >}}\n"
-	if got := scfmt(in); got != in {
-		t.Errorf("got:\n%s\nwant:\n%s", got, in)
+	want := "" +
+		"1. {{< details \"X\" >}}\n" +
+		"   - Item\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_BulletListNestedIndent: closer inside a bullet-list item is
+// re-indented to the 2-space content column (len("- ") = 2).
+func TestSCFmt_BulletListNestedIndent(t *testing.T) {
+	in := "" +
+		"- {{< details \"X\" >}}\n" +
+		"  - Nested item\n" +
+		"{{< /details >}}\n"
+	want := "" +
+		"- {{< details \"X\" >}}\n" +
+		"  - Nested item\n" +
+		"  {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_ListNestedMultipleItems: multiple list items each with an inline
+// shortcode opener — each closer is re-indented to the correct column.
+func TestSCFmt_ListNestedMultipleItems(t *testing.T) {
+	in := "" +
+		"1. {{< details \"Заполненная форма\" >}}\n" +
+		"   - Форму выдают на месте\n" +
+		"   - Заполненный пример\n" +
+		"{{< /details >}}\n" +
+		"2. {{< details \"Бели картон\" >}}\n" +
+		"   - Что-то тут\n" +
+		"{{< /details >}}\n"
+	want := "" +
+		"1. {{< details \"Заполненная форма\" >}}\n" +
+		"   - Форму выдают на месте\n" +
+		"   - Заполненный пример\n" +
+		"   {{< /details >}}\n" +
+		"2. {{< details \"Бели картон\" >}}\n" +
+		"   - Что-то тут\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	scIdempotent(t, in)
 }
 
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener

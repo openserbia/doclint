@@ -2,10 +2,16 @@ package engine
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 
 	"github.com/openserbia/doclint/pkg/document"
 )
+
+// scListMarkerRe matches a list-item marker (bullet or ordered) with up to three
+// leading spaces, capturing the leading whitespace and the marker to compute the
+// content column where list-continuation content should indent to.
+var scListMarkerRe = regexp.MustCompile(`^( {0,3})([-*+]|\d{1,9}[.)]) `)
 
 // ShortcodeIndentPass is a FormatPass that re-indents Hugo shortcode tag lines
 // based on their nesting depth. Content lines between tags are never modified.
@@ -60,6 +66,12 @@ func formatShortcodeIndent(src []byte) []byte {
 	inMultilineTag := false
 	multilineIsBlock := false // whether the current multi-line opener is a block opener
 
+	// listIndentStack tracks list-continuation indents for shortcodes opened
+	// inline in list items (e.g. "1. {{< details >}}"). When such a closer is
+	// encountered at depth 0, it is indented to this column rather than being
+	// emitted verbatim (which could leave it at column 0 or a wrong indent).
+	var listIndentStack []int
+
 	for _, ln := range lines {
 		// Fence interiors are always emitted verbatim.
 		if ln.InFence {
@@ -80,10 +92,14 @@ func formatShortcodeIndent(src []byte) []byte {
 			continue
 		}
 
-		// Not a pure shortcode tag line — emit verbatim.
+		// Not a pure shortcode tag line — emit verbatim, but track inline
+		// block-openers in list items so the closer can be indented correctly.
 		if !scIsPureTagLine(t) {
 			out.WriteString(ln.Text)
 			out.WriteByte('\n')
+			if col := scInlineListOpenerCol(ln.Text, closedNames); col > 0 {
+				listIndentStack = append(listIndentStack, col)
+			}
 			continue
 		}
 
@@ -102,10 +118,19 @@ func formatShortcodeIndent(src []byte) []byte {
 			if depth == 0 {
 				// The matching opener was not a pure-tag line (e.g. inline
 				// in a list item: "1. {{< details >}}"), so it never
-				// incremented depth. Preserve the markdown-structural
-				// indent instead of stripping it to column 0.
-				out.WriteString(ln.Text)
-				out.WriteByte('\n')
+				// incremented depth. Re-indent to the list-continuation
+				// column if one was recorded; otherwise preserve the
+				// markdown-structural indent as-is.
+				if n := len(listIndentStack); n > 0 {
+					col := listIndentStack[n-1]
+					listIndentStack = listIndentStack[:n-1]
+					out.WriteString(strings.Repeat(" ", col))
+					out.WriteString(t)
+					out.WriteByte('\n')
+				} else {
+					out.WriteString(ln.Text)
+					out.WriteByte('\n')
+				}
 			} else {
 				depth--
 				out.WriteString(strings.Repeat(scIndentUnit, depth))
@@ -237,4 +262,43 @@ func scIsCloser(trimmed string) bool {
 // self-closing ("{{< tag />}}").
 func scIsSelfClosing(trimmed string) bool {
 	return strings.HasSuffix(trimmed, "/>}}")
+}
+
+// scInlineListOpenerCol detects a block-opener shortcode embedded inline in a
+// list item (e.g. "1. {{< details >}}") and returns the list-continuation
+// indent column (len(leading) + len(marker) + 1). Returns 0 if the line is not
+// a list item or does not contain a block-opener shortcode.
+func scInlineListOpenerCol(text string, closedNames map[string]bool) int {
+	m := scListMarkerRe.FindStringSubmatch(text)
+	if m == nil {
+		return 0
+	}
+	// Check whether this line contains an opening shortcode (angle or percent).
+	scIdx := strings.Index(text, "{{< ")
+	if scIdx < 0 {
+		scIdx = strings.Index(text, "{{% ")
+	}
+	if scIdx < 0 {
+		scIdx = strings.Index(text, "{{<")
+	}
+	if scIdx < 0 {
+		scIdx = strings.Index(text, "{{%")
+	}
+	if scIdx < 0 {
+		return 0
+	}
+	// Extract the shortcode name and check that it is a block opener.
+	scPart := strings.TrimSpace(text[scIdx:])
+	if scIsCloser(scPart) {
+		return 0
+	}
+	name := scTagName(scPart)
+	if name == "" || !closedNames[name] {
+		return 0
+	}
+	// Also skip if the same line also closes this shortcode (compound line).
+	if strings.Contains(text[scIdx:], "{{< /"+name) || strings.Contains(text[scIdx:], "{{% /"+name) {
+		return 0
+	}
+	return len(m[1]) + len(m[2]) + 1
 }

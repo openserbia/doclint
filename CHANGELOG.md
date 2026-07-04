@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-04
+
+### Changed
+- `fmt` shortcode-indent pass now **re-indents closing shortcode tags** inside list items to the list-continuation column. When a shortcode opens inline in a list item (e.g. `1. {{< details "X" >}}`), the closing `{{< /details >}}` is indented to the marker's content column (3 spaces for `1. `, 2 for `- `) instead of being left at column 0 or whatever stray indent the author wrote. The pass tracks inline block-openers on a stack so multiple sequential list items each get their closer fixed independently. Already-correct indentation is unchanged (idempotent).
+
 ## [0.7.0] - 2026-07-03
 
 ### Added
