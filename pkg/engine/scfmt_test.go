@@ -460,6 +460,52 @@ func TestSCFmt_ListNestedMultipleItems(t *testing.T) {
 	scIdempotent(t, in)
 }
 
+// TestSCFmt_ListNestedSingleTag: a single-tag shortcode (no closer) inside a
+// list-inline block shortcode is re-indented to the list-continuation column.
+func TestSCFmt_ListNestedSingleTag(t *testing.T) {
+	in := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"{{< euprava-payment key=\"fee\" >}}\n" +
+		"   {{< /details >}}\n"
+	want := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"   {{< euprava-payment key=\"fee\" >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_ListNestedBlockShortcodes: nested block shortcodes inside a
+// list-inline opener get the list-continuation base plus depth-based indent.
+func TestSCFmt_ListNestedBlockShortcodes(t *testing.T) {
+	in := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"{{< uplatnica >}}\n" +
+		"{{< uplatnica-form amount=\"400\" >}}\n" +
+		"{{< uf-field slot=\"payer\" >}}\n" +
+		"Имя\n" +
+		"{{< /uf-field >}}\n" +
+		"{{< /uplatnica-form >}}\n" +
+		"{{< /uplatnica >}}\n" +
+		"   {{< /details >}}\n"
+	want := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"   {{< uplatnica >}}\n" +
+		"     {{< uplatnica-form amount=\"400\" >}}\n" +
+		"       {{< uf-field slot=\"payer\" >}}\n" +
+		"Имя\n" +
+		"       {{< /uf-field >}}\n" +
+		"     {{< /uplatnica-form >}}\n" +
+		"   {{< /uplatnica >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	scIdempotent(t, in)
+}
+
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener
 // must not panic or produce negative depth.
 func TestSCFmt_DepthNeverGoesNegative(t *testing.T) {

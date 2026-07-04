@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-04
+
+### Fixed
+- `fmt` shortcode-indent pass now re-indents **all** pure-tag shortcode lines inside a list-inline block to the list-continuation column, not just the closer. Previously a single-tag shortcode like `{{< euprava-payment >}}` between the list-inline opener (`7. {{< details >}}`) and its closer had its leading whitespace stripped to column 0. Now the list-continuation column (e.g. 3 for `7. `) is used as a base indent for every pure-tag line while the list-inline block is active; nested block shortcodes inside it add the normal depth-based indent on top of the base.
+
 ## [0.7.1] - 2026-07-04
 
 ### Changed

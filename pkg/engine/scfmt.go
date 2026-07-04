@@ -67,10 +67,22 @@ func formatShortcodeIndent(src []byte) []byte {
 	multilineIsBlock := false // whether the current multi-line opener is a block opener
 
 	// listIndentStack tracks list-continuation indents for shortcodes opened
-	// inline in list items (e.g. "1. {{< details >}}"). When such a closer is
-	// encountered at depth 0, it is indented to this column rather than being
-	// emitted verbatim (which could leave it at column 0 or a wrong indent).
+	// inline in list items (e.g. "1. {{< details >}}"). When the stack is
+	// non-empty, all pure-tag lines use the top value as a base indent
+	// (added before the depth-based indent), so children of a list-nested
+	// shortcode stay at the list-continuation column. The closer at depth 0
+	// pops the stack.
 	var listIndentStack []int
+
+	// indent returns the indentation string for the current depth, adding
+	// the list-continuation base when inside a list-inline block.
+	indent := func() string {
+		base := strings.Repeat(scIndentUnit, depth)
+		if n := len(listIndentStack); n > 0 {
+			return strings.Repeat(" ", listIndentStack[n-1]) + base
+		}
+		return base
+	}
 
 	for _, ln := range lines {
 		// Fence interiors are always emitted verbatim.
@@ -107,7 +119,7 @@ func formatShortcodeIndent(src []byte) []byte {
 		// e.g. "{{< uf-field slot="sifra" >}}{{< /uf-field >}}".
 		// Net depth change is zero; re-indent to current depth only.
 		if strings.Contains(t, "}}{{") {
-			out.WriteString(strings.Repeat(scIndentUnit, depth))
+			out.WriteString(indent())
 			out.WriteString(t)
 			out.WriteByte('\n')
 			continue
@@ -133,14 +145,14 @@ func formatShortcodeIndent(src []byte) []byte {
 				}
 			} else {
 				depth--
-				out.WriteString(strings.Repeat(scIndentUnit, depth))
+				out.WriteString(indent())
 				out.WriteString(t)
 				out.WriteByte('\n')
 			}
 
 		case scIsSelfClosing(t):
 			// Explicit "/>}}" — never increments depth.
-			out.WriteString(strings.Repeat(scIndentUnit, depth))
+			out.WriteString(indent())
 			out.WriteString(t)
 			out.WriteByte('\n')
 
@@ -159,7 +171,7 @@ func formatShortcodeIndent(src []byte) []byte {
 			// Single-line opener: "{{< tag ... >}}"
 			// Re-indent to current depth; increment depth only for block openers.
 			name := scTagName(t)
-			out.WriteString(strings.Repeat(scIndentUnit, depth))
+			out.WriteString(indent())
 			out.WriteString(t)
 			out.WriteByte('\n')
 			if closedNames[name] {
