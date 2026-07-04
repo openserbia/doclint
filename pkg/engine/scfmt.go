@@ -13,46 +13,36 @@ import (
 // content column where list-continuation content should indent to.
 var scListMarkerRe = regexp.MustCompile(`^( {0,3})([-*+]|\d{1,9}[.)]) `)
 
-// ShortcodeIndentPass is a FormatPass that re-indents Hugo shortcode tag lines
-// based on their nesting depth. Content lines between tags are never modified.
+// ShortcodeIndentPass is a FormatPass that fixes shortcode indentation inside
+// list items. Standalone shortcodes are emitted verbatim (no tree indentation).
 type ShortcodeIndentPass struct{}
 
 func (ShortcodeIndentPass) Name() string            { return "shortcode-indent" }
 func (ShortcodeIndentPass) Apply(src []byte) []byte { return formatShortcodeIndent(src) }
 
-const scIndentUnit = "  " // 2 spaces per shortcode nesting level
+const scIndentUnit = "  " // 2 spaces per shortcode nesting level (inside list blocks)
 
-// formatShortcodeIndent re-indents Hugo shortcode opening/closing-tag lines
-// based on nesting depth. It is idempotent: running it twice produces the same
-// output as running it once.
+// formatShortcodeIndent fixes Hugo shortcode indentation inside list items.
+// It is idempotent: running it twice produces the same output as running it once.
 //
-// A line qualifies as a "pure shortcode tag line" — eligible for re-indentation
-// — when its trimmed form starts with "{{<" or "{{%". This excludes:
+// Standalone shortcodes (not inside a list item's inline block) are emitted
+// verbatim — no tree-based re-indentation is applied. The pass only re-indents
+// when a block shortcode opens inline in a list item (e.g. "1. {{< details >}}"):
+// the closer and any inner pure-tag shortcode lines are indented to the
+// list-continuation column (len(leading) + len(marker) + 1) plus depth-based
+// offset for nested block shortcodes.
+//
+// A line qualifies as a "pure shortcode tag line" when its trimmed form starts
+// with "{{<" or "{{%". This excludes:
 //   - Inline shortcodes inside a list item or prose ("- {{< video ... >}}")
 //     because TrimSpace starts with "-", not "{{<".
 //   - Shortcodes used as link targets ("[text]({{< relref ... >}})")
 //     because TrimSpace starts with "[".
 //   - Lines inside fenced code blocks (InFence=true).
 //
-// Content lines between tags — prose, list items, blank lines — are never
-// modified. Markdown is indentation-sensitive (4+ leading spaces = code block),
-// and content inside shortcodes often carries indentation that reflects the
-// surrounding markdown structure (e.g. list-continuation indent). Re-indenting
-// prose would silently corrupt rendering.
-//
-// Depth tracking uses a two-pass approach. The first pass collects every
-// shortcode name that has an explicit closing tag ("{{< /name >}}") anywhere in
-// the document. Only those names are treated as block openers that increase
-// depth; all others (e.g. figure, video, link-card) are treated as self-contained
-// single tags regardless of whether they use the self-closing "/>}}" syntax. This
-// prevents single-tag shortcodes with multi-line parameter blocks from
-// incorrectly inflating the depth counter.
-//
-// Multi-line tag parameter blocks (e.g. "{{< uplatnica\nkey="v"\n>}}") are
-// emitted as-is: the opener and its continuation lines are left untouched, but
-// the depth counter is still updated when the closing ">}}" line is reached (if
-// the opener's name is a block opener), so that children and the closer are
-// placed correctly.
+// Depth is tracked internally (via a two-pass approach that collects block-opener
+// names) so the pass can correctly match closers and pop the list-indent stack
+// at the right time. Multi-line tag parameter blocks are always emitted as-is.
 func formatShortcodeIndent(src []byte) []byte {
 	lines := document.SplitLines(src)
 
@@ -60,7 +50,11 @@ func formatShortcodeIndent(src []byte) []byte {
 	// Only these names are block openers; all others are treated as single tags.
 	closedNames := scCollectClosedNames(lines)
 
-	// Pass 2: re-indent pure shortcode tag lines.
+	// Pass 2: fix shortcode indentation inside list items only.
+	// Standalone shortcodes (not inside a list item) are emitted verbatim —
+	// no tree-based re-indentation. Depth is still tracked internally so we
+	// can correctly match closers to their openers and pop the list stack at
+	// the right time.
 	var out bytes.Buffer
 	depth := 0
 	inMultilineTag := false
@@ -68,20 +62,20 @@ func formatShortcodeIndent(src []byte) []byte {
 
 	// listIndentStack tracks list-continuation indents for shortcodes opened
 	// inline in list items (e.g. "1. {{< details >}}"). When the stack is
-	// non-empty, all pure-tag lines use the top value as a base indent
-	// (added before the depth-based indent), so children of a list-nested
-	// shortcode stay at the list-continuation column. The closer at depth 0
-	// pops the stack.
+	// non-empty, pure-tag lines are re-indented to the list-continuation
+	// column plus depth-based offset. Outside list-inline blocks, lines are
+	// emitted verbatim.
 	var listIndentStack []int
 
-	// indent returns the indentation string for the current depth, adding
-	// the list-continuation base when inside a list-inline block.
+	// inList reports whether we are inside a list-inline block.
+	inList := func() bool { return len(listIndentStack) > 0 }
+
+	// indent returns the indentation string when inside a list-inline block.
 	indent := func() string {
-		base := strings.Repeat(scIndentUnit, depth)
 		if n := len(listIndentStack); n > 0 {
-			return strings.Repeat(" ", listIndentStack[n-1]) + base
+			return strings.Repeat(" ", listIndentStack[n-1]) + strings.Repeat(scIndentUnit, depth)
 		}
-		return base
+		return ""
 	}
 
 	for _, ln := range lines {
@@ -115,9 +109,38 @@ func formatShortcodeIndent(src []byte) []byte {
 			continue
 		}
 
-		// Compound line: opener immediately followed by a closer on the same line,
-		// e.g. "{{< uf-field slot="sifra" >}}{{< /uf-field >}}".
-		// Net depth change is zero; re-indent to current depth only.
+		// Outside a list-inline block: emit all pure-tag lines verbatim,
+		// only tracking depth for structural correctness.
+		if !inList() {
+			out.WriteString(ln.Text)
+			out.WriteByte('\n')
+			// Still track depth so we don't confuse a later list-inline
+			// closer with a standalone closer.
+			if strings.Contains(t, "}}{{") {
+				// Compound line: net zero.
+			} else if scIsCloser(t) {
+				if depth > 0 {
+					depth--
+				}
+			} else if scIsSelfClosing(t) {
+				// No depth change.
+			} else if !strings.HasSuffix(t, ">}}") && !strings.HasSuffix(t, "%}}") {
+				name := scTagName(t)
+				inMultilineTag = true
+				multilineIsBlock = closedNames[name]
+			} else {
+				name := scTagName(t)
+				if closedNames[name] {
+					depth++
+				}
+			}
+			continue
+		}
+
+		// Inside a list-inline block: re-indent to list-continuation
+		// column plus depth-based offset.
+
+		// Compound line: net depth zero.
 		if strings.Contains(t, "}}{{") {
 			out.WriteString(indent())
 			out.WriteString(t)
@@ -128,21 +151,13 @@ func formatShortcodeIndent(src []byte) []byte {
 		switch {
 		case scIsCloser(t):
 			if depth == 0 {
-				// The matching opener was not a pure-tag line (e.g. inline
-				// in a list item: "1. {{< details >}}"), so it never
-				// incremented depth. Re-indent to the list-continuation
-				// column if one was recorded; otherwise preserve the
-				// markdown-structural indent as-is.
-				if n := len(listIndentStack); n > 0 {
-					col := listIndentStack[n-1]
-					listIndentStack = listIndentStack[:n-1]
-					out.WriteString(strings.Repeat(" ", col))
-					out.WriteString(t)
-					out.WriteByte('\n')
-				} else {
-					out.WriteString(ln.Text)
-					out.WriteByte('\n')
-				}
+				// This is the closer that matches the list-inline opener.
+				n := len(listIndentStack)
+				col := listIndentStack[n-1]
+				listIndentStack = listIndentStack[:n-1]
+				out.WriteString(strings.Repeat(" ", col))
+				out.WriteString(t)
+				out.WriteByte('\n')
 			} else {
 				depth--
 				out.WriteString(indent())
@@ -151,16 +166,12 @@ func formatShortcodeIndent(src []byte) []byte {
 			}
 
 		case scIsSelfClosing(t):
-			// Explicit "/>}}" — never increments depth.
 			out.WriteString(indent())
 			out.WriteString(t)
 			out.WriteByte('\n')
 
 		case !strings.HasSuffix(t, ">}}") && !strings.HasSuffix(t, "%}}"):
-			// Multi-line opener: "{{<" starts the line but ">}}" is not on it yet.
-			// Emit the first line as-is (re-indenting here would misalign the
-			// parameter continuation lines), but remember whether this opener is a
-			// block opener so depth can be updated when we see the closing ">}}".
+			// Multi-line opener inside a list block — emit as-is.
 			name := scTagName(t)
 			out.WriteString(ln.Text)
 			out.WriteByte('\n')
@@ -168,8 +179,6 @@ func formatShortcodeIndent(src []byte) []byte {
 			multilineIsBlock = closedNames[name]
 
 		default:
-			// Single-line opener: "{{< tag ... >}}"
-			// Re-indent to current depth; increment depth only for block openers.
 			name := scTagName(t)
 			out.WriteString(indent())
 			out.WriteString(t)

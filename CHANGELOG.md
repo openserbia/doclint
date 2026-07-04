@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-07-04
+
+### Changed
+- `fmt` shortcode-indent pass no longer applies **tree-based re-indentation** to standalone shortcodes. Previously, nested shortcodes like `{{< step >}}` inside `{{< steps >}}` were pushed to 2/4/6-space indent based on nesting depth — this caused visual mismatch with content between tags (which stays at column 0) and risked 4+-space lines being misinterpreted as code blocks. Now standalone shortcodes pass through verbatim with whatever indentation the author wrote. The **list-continuation indent** feature (v0.7.1/v0.7.2) is preserved: shortcodes opened inline in a list item (`1. {{< details >}}`) still get their closers and inner pure-tag lines fixed to the marker's content column.
+
 ## [0.7.2] - 2026-07-04
 
 ### Fixed
