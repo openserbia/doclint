@@ -1,5 +1,7 @@
 package engine
 
+import "github.com/openserbia/doclint/pkg/config"
+
 // FormatPass is a single idempotent byte-level formatting pass. Passes run
 // after the core formatter (structural fixes, blank-run collapse,
 // trailing-newline normalisation) in registration order; each pass receives
@@ -52,5 +54,24 @@ func DefaultFormatRegistry() *FormatRegistry {
 	reg := NewFormatRegistry()
 	reg.Register(TableAlignPass{})
 	reg.Register(ShortcodeIndentPass{})
+	return reg
+}
+
+// FormatRegistryFor builds the format registry honoring cfg's `fmt` options:
+// table-align always runs; shortcode-indent runs only when enabled, using the
+// configured indent width and per-shortcode exclude list. A nil cfg yields the
+// default registry.
+func FormatRegistryFor(cfg *config.Config) *FormatRegistry {
+	if cfg == nil {
+		return DefaultFormatRegistry()
+	}
+	reg := NewFormatRegistry()
+	reg.Register(TableAlignPass{})
+	if sc := cfg.Fmt.ShortcodeIndent; sc.IsEnabled() {
+		reg.Register(ShortcodeIndentPass{
+			IndentWidth: sc.Width(),
+			Exclude:     sc.ExcludeSet(),
+		})
+	}
 	return reg
 }

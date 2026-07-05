@@ -35,7 +35,8 @@ func newFmtCmd(opts *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			changed, err := processFiles(files, check, diff, cmd.OutOrStdout())
+			freg := engine.FormatRegistryFor(cfg)
+			changed, err := processFiles(files, freg, check, diff, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -53,10 +54,10 @@ func newFmtCmd(opts *Options) *cobra.Command {
 	return cmd
 }
 
-func processFiles(files []string, check, diff bool, w io.Writer) ([]string, error) {
+func processFiles(files []string, freg *engine.FormatRegistry, check, diff bool, w io.Writer) ([]string, error) {
 	var changed []string
 	for _, p := range files {
-		ok, err := processFile(p, check, diff, w)
+		ok, err := processFile(p, freg, check, diff, w)
 		if err != nil {
 			return changed, err
 		}
@@ -67,7 +68,7 @@ func processFiles(files []string, check, diff bool, w io.Writer) ([]string, erro
 	return changed, nil
 }
 
-func processFile(p string, check, diff bool, w io.Writer) (bool, error) {
+func processFile(p string, freg *engine.FormatRegistry, check, diff bool, w io.Writer) (bool, error) {
 	raw, err := os.ReadFile(p) //nolint:gosec // discovered path
 	if err != nil {
 		return false, err
@@ -76,7 +77,7 @@ func processFile(p string, check, diff bool, w io.Writer) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	out := engine.Format(doc)
+	out := engine.FormatWith(doc, freg)
 	if bytes.Equal(out, raw) {
 		return false, nil
 	}

@@ -4,9 +4,23 @@ import (
 	"testing"
 )
 
-// scfmt is a thin helper so table cells stay readable.
+// scfmt is a thin helper so table cells stay readable. It uses the default
+// indent width (2) and no shortcode exclusions.
 func scfmt(src string) string {
-	return string(formatShortcodeIndent([]byte(src)))
+	return string(formatShortcodeIndent([]byte(src), 2, nil))
+}
+
+// scfmtCfg runs the pass with a custom indent width and optional excluded
+// shortcode names.
+func scfmtCfg(src string, width int, exclude ...string) string {
+	var set map[string]bool
+	if len(exclude) > 0 {
+		set = map[string]bool{}
+		for _, n := range exclude {
+			set[n] = true
+		}
+	}
+	return string(formatShortcodeIndent([]byte(src), width, set))
 }
 
 // idempotent verifies that running the formatter twice produces the same output
@@ -330,6 +344,111 @@ func TestSCFmt_RealPermanentResidenceOffline(t *testing.T) {
 		t.Errorf("real offline/index.md content was re-indented:\ngot:\n%s\nwant:\n%s", got, in)
 	}
 	scIdempotent(t, in)
+}
+
+// TestSCFmt_AlignToSiblingContentColZero: when a list item's continuation prose
+// is at column 0 (a consistent author layout under a wider marker like "10. "),
+// the item's shortcode tags align to that prose column (0) — NOT the theoretical
+// marker-width column (4). Real content from vozila/replacing-driving-license.
+func TestSCFmt_AlignToSiblingContentColZero(t *testing.T) {
+	in := "" +
+		"10. {{< details \"Пошлина ({{< tax driving_license_replacement_fee >}})\" >}}\n" +
+		"\n" +
+		"Оплачивать пошлину заранее, до похода в МУП. Квитанцию заберут\n" +
+		"{{< euprava-payment key=\"driving_license_replacement_fee\" >}}\n" +
+		"{{< /details >}}\n"
+	if got := scfmt(in); got != in {
+		t.Errorf("col-0 sibling prose not respected:\ngot:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_AlignToSiblingContentIndented: the same block with a consistent
+// 3-space continuation indent stays at 3 — the tags align to the prose, not to
+// the marker-width column (4).
+func TestSCFmt_AlignToSiblingContentIndented(t *testing.T) {
+	in := "" +
+		"10. {{< details \"Пошлина\" >}}\n" +
+		"\n" +
+		"   Оплачивать пошлину заранее\n" +
+		"   {{< euprava-payment key=\"fee\" >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != in {
+		t.Errorf("3-space sibling prose not respected:\ngot:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_NoProseFallsBackToMarker: a tag-only list-inline block (no direct
+// prose to align to) falls back to the marker-width continuation column.
+func TestSCFmt_NoProseFallsBackToMarker(t *testing.T) {
+	in := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"{{< euprava-payment key=\"fee\" >}}\n" +
+		"{{< /details >}}\n"
+	want := "" +
+		"7. {{< details \"Пошлина\" >}}\n" +
+		"   {{< euprava-payment key=\"fee\" >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmt(in); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_IndentWidthConfigurable: the per-nesting-level indent width is
+// configurable; width 4 puts a nested block at base+4 instead of base+2.
+func TestSCFmt_IndentWidthConfigurable(t *testing.T) {
+	in := "" +
+		"7. {{< details \"Pay\" >}}\n" +
+		"{{< uplatnica >}}\n" +
+		"{{< uf-field slot=\"a\" >}}\n" +
+		"{{< /uf-field >}}\n" +
+		"{{< /uplatnica >}}\n" +
+		"{{< /details >}}\n"
+	// base = marker width 3 (no prose); depth adds 4 per level.
+	want := "" +
+		"7. {{< details \"Pay\" >}}\n" +
+		"   {{< uplatnica >}}\n" +
+		"       {{< uf-field slot=\"a\" >}}\n" +
+		"       {{< /uf-field >}}\n" +
+		"   {{< /uplatnica >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmtCfg(in, 4); got != want {
+		t.Errorf("width=4 got:\n%s\nwant:\n%s", got, want)
+	}
+	if scfmtCfg(want, 4) != want {
+		t.Errorf("width=4 not idempotent")
+	}
+}
+
+// TestSCFmt_ExcludeShortcodeSubtree: an excluded shortcode's whole subtree —
+// including a multi-line opener and inner tags — is emitted verbatim, while the
+// enclosing block's closer is still re-indented.
+func TestSCFmt_ExcludeShortcodeSubtree(t *testing.T) {
+	in := "" +
+		"1. {{< details \"Pay\" >}}\n" +
+		"{{< uplatnica\n" +
+		"service=\"x\"\n" +
+		">}}\n" +
+		"{{< uf-field slot=\"a\" >}}text{{< /uf-field >}}\n" +
+		"{{< /uplatnica >}}\n" +
+		"{{< /details >}}\n"
+	// uplatnica subtree stays verbatim (col 0); only the details closer moves.
+	want := "" +
+		"1. {{< details \"Pay\" >}}\n" +
+		"{{< uplatnica\n" +
+		"service=\"x\"\n" +
+		">}}\n" +
+		"{{< uf-field slot=\"a\" >}}text{{< /uf-field >}}\n" +
+		"{{< /uplatnica >}}\n" +
+		"   {{< /details >}}\n"
+	if got := scfmtCfg(in, 2, "uplatnica"); got != want {
+		t.Errorf("exclude got:\n%s\nwant:\n%s", got, want)
+	}
+	if scfmtCfg(want, 2, "uplatnica") != want {
+		t.Errorf("exclude not idempotent")
+	}
 }
 
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener

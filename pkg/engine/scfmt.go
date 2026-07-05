@@ -15,12 +15,24 @@ var scListMarkerRe = regexp.MustCompile(`^( {0,3})([-*+]|\d{1,9}[.)]) `)
 
 // ShortcodeIndentPass is a FormatPass that fixes shortcode indentation inside
 // list items. Standalone shortcodes are emitted verbatim (no tree indentation).
-type ShortcodeIndentPass struct{}
+//
+// IndentWidth is the number of spaces added per shortcode nesting level inside a
+// list-inline block (0 → the default of 2). Exclude names shortcodes whose whole
+// subtree (opener through matching closer) is emitted verbatim — useful for
+// shortcodes with carefully hand-aligned internals (e.g. uplatnica payment forms).
+type ShortcodeIndentPass struct {
+	IndentWidth int
+	Exclude     map[string]bool
+}
 
-func (ShortcodeIndentPass) Name() string            { return "shortcode-indent" }
-func (ShortcodeIndentPass) Apply(src []byte) []byte { return formatShortcodeIndent(src) }
+func (ShortcodeIndentPass) Name() string { return "shortcode-indent" }
+func (p ShortcodeIndentPass) Apply(src []byte) []byte {
+	return formatShortcodeIndent(src, p.IndentWidth, p.Exclude)
+}
 
-const scIndentUnit = "  " // 2 spaces per shortcode nesting level (inside list blocks)
+// scDefaultIndentWidth is the per-nesting-level indent used when IndentWidth is
+// left at its zero value.
+const scDefaultIndentWidth = 2
 
 // formatShortcodeIndent fixes Hugo shortcode indentation inside list items.
 // It is idempotent: running it twice produces the same output as running it once.
@@ -28,9 +40,13 @@ const scIndentUnit = "  " // 2 spaces per shortcode nesting level (inside list b
 // Standalone shortcodes (not inside a list item's inline block) are emitted
 // verbatim — no tree-based re-indentation is applied. The pass only re-indents
 // when a block shortcode opens inline in a list item (e.g. "1. {{< details >}}"):
-// the closer and any inner pure-tag shortcode lines are indented to the
-// list-continuation column (len(leading) + len(marker) + 1) plus depth-based
-// offset for nested block shortcodes.
+// the closer and any inner pure-tag shortcode lines are aligned to the item's
+// actual continuation indent — the leading whitespace of the item's first direct
+// prose line (see scListContentCol) — plus a depth-based offset for nested block
+// shortcodes. When the item has no direct prose (only shortcode tags), the
+// list-continuation column (len(leading) + len(marker) + 1) is used as the base.
+// Aligning to sibling prose keeps a tag from being pushed past content the author
+// already positioned (e.g. a col-0 block under a "10. " marker stays at col 0).
 //
 // A line qualifies as a "pure shortcode tag line" when its trimmed form starts
 // with "{{<" or "{{%". This excludes:
@@ -43,153 +59,183 @@ const scIndentUnit = "  " // 2 spaces per shortcode nesting level (inside list b
 // Depth is tracked internally (via a two-pass approach that collects block-opener
 // names) so the pass can correctly match closers and pop the list-indent stack
 // at the right time. Multi-line tag parameter blocks are always emitted as-is.
-func formatShortcodeIndent(src []byte) []byte {
+func formatShortcodeIndent(src []byte, indentWidth int, exclude map[string]bool) []byte {
+	if indentWidth <= 0 {
+		indentWidth = scDefaultIndentWidth
+	}
 	lines := document.SplitLines(src)
+	s := &scState{
+		lines: lines,
+		// Pass 1: collect every shortcode name that has an explicit closing tag.
+		// Only those names are block openers; all others are single tags.
+		closedNames: scCollectClosedNames(lines),
+		indentWidth: indentWidth,
+	}
+	// Pre-scan: mark every line inside an excluded shortcode's subtree (opener
+	// through matching closer). Those lines are emitted verbatim, like fences.
+	s.excluded = scExcludedLineSet(lines, exclude, s.closedNames)
 
-	// Pass 1: collect every shortcode name that has an explicit closing tag.
-	// Only these names are block openers; all others are treated as single tags.
-	closedNames := scCollectClosedNames(lines)
+	for i := range lines {
+		s.step(i)
+	}
+	return s.out.Bytes()
+}
 
-	// Pass 2: fix shortcode indentation inside list items only.
-	// Standalone shortcodes (not inside a list item) are emitted verbatim —
-	// no tree-based re-indentation. Depth is still tracked internally so we
-	// can correctly match closers to their openers and pop the list stack at
-	// the right time.
-	var out bytes.Buffer
-	depth := 0
-	inMultilineTag := false
-	multilineIsBlock := false // whether the current multi-line opener is a block opener
+// scState carries the mutable state of a single formatShortcodeIndent run. Only
+// shortcodes opened inline in a list item are re-indented; everything else is
+// emitted verbatim, with depth tracked internally so closers match their openers.
+type scState struct {
+	out              bytes.Buffer
+	lines            []document.Line
+	closedNames      map[string]bool
+	excluded         []bool
+	indentWidth      int
+	depth            int
+	inMultilineTag   bool
+	multilineIsBlock bool
+	// listIndentStack holds the continuation base column for each active
+	// list-inline block; non-empty means we are inside one.
+	listIndentStack []int
+}
 
-	// listIndentStack tracks list-continuation indents for shortcodes opened
-	// inline in list items (e.g. "1. {{< details >}}"). When the stack is
-	// non-empty, pure-tag lines are re-indented to the list-continuation
-	// column plus depth-based offset. Outside list-inline blocks, lines are
-	// emitted verbatim.
-	var listIndentStack []int
+func (s *scState) inList() bool { return len(s.listIndentStack) > 0 }
 
-	// inList reports whether we are inside a list-inline block.
-	inList := func() bool { return len(listIndentStack) > 0 }
+// indent returns the indentation string for a re-indented tag inside a
+// list-inline block: the innermost block's base column plus depth-based offset.
+func (s *scState) indent() string {
+	if n := len(s.listIndentStack); n > 0 {
+		return strings.Repeat(" ", s.listIndentStack[n-1]+s.indentWidth*s.depth)
+	}
+	return ""
+}
 
-	// indent returns the indentation string when inside a list-inline block.
-	indent := func() string {
-		if n := len(listIndentStack); n > 0 {
-			return strings.Repeat(" ", listIndentStack[n-1]) + strings.Repeat(scIndentUnit, depth)
-		}
-		return ""
+func (s *scState) emitVerbatim(text string) {
+	s.out.WriteString(text)
+	s.out.WriteByte('\n')
+}
+
+func (s *scState) emitIndented(prefix, body string) {
+	s.out.WriteString(prefix)
+	s.out.WriteString(body)
+	s.out.WriteByte('\n')
+}
+
+// step processes line i, dispatching to the verbatim, multi-line, list-opener,
+// standalone, or list-inline handler.
+func (s *scState) step(i int) {
+	ln := s.lines[i]
+	// Fence interiors and excluded-shortcode subtrees are emitted verbatim.
+	if ln.InFence || s.excluded[i] {
+		s.emitVerbatim(ln.Text)
+		return
+	}
+	t := strings.TrimSpace(ln.Text)
+
+	// Inside a multi-line opener ({{< tag\n...\n>}}) — pass lines through until
+	// the closer, then update depth if the opener is a block opener.
+	if s.inMultilineTag {
+		s.emitVerbatim(ln.Text)
+		s.inMultilineTag, s.depth = scHandleMultilineContinuation(t, s.multilineIsBlock, s.depth)
+		return
 	}
 
-	for _, ln := range lines {
-		// Fence interiors are always emitted verbatim.
-		if ln.InFence {
-			out.WriteString(ln.Text)
-			out.WriteByte('\n')
-			continue
+	// Not a pure tag line — emit verbatim, but note an inline block-opener in a
+	// list item so its subtree can be aligned to the item's continuation column.
+	if !scIsPureTagLine(t) {
+		s.emitVerbatim(ln.Text)
+		if col := scInlineListOpenerCol(ln.Text, s.closedNames); col > 0 {
+			s.listIndentStack = append(s.listIndentStack, scListContentCol(s.lines, i, col, s.closedNames))
 		}
-
-		t := strings.TrimSpace(ln.Text)
-
-		// Inside a multi-line opener ({{< tag\n...params...\n>}}) — pass every
-		// line through unchanged until the closing >}} (or />}} for self-closing),
-		// then update depth if the opener is a block opener.
-		if inMultilineTag {
-			out.WriteString(ln.Text)
-			out.WriteByte('\n')
-			inMultilineTag, depth = scHandleMultilineContinuation(t, multilineIsBlock, depth)
-			continue
-		}
-
-		// Not a pure shortcode tag line — emit verbatim, but track inline
-		// block-openers in list items so the closer can be indented correctly.
-		if !scIsPureTagLine(t) {
-			out.WriteString(ln.Text)
-			out.WriteByte('\n')
-			if col := scInlineListOpenerCol(ln.Text, closedNames); col > 0 {
-				listIndentStack = append(listIndentStack, col)
-			}
-			continue
-		}
-
-		// Outside a list-inline block: emit all pure-tag lines verbatim,
-		// only tracking depth for structural correctness.
-		if !inList() {
-			out.WriteString(ln.Text)
-			out.WriteByte('\n')
-			// Still track depth so we don't confuse a later list-inline
-			// closer with a standalone closer.
-			if scIsSelfContained(t) {
-				// Opens and closes on the same line: net zero.
-			} else if scIsCloser(t) {
-				if depth > 0 {
-					depth--
-				}
-			} else if scIsSelfClosing(t) {
-				// No depth change.
-			} else if !strings.HasSuffix(t, ">}}") && !strings.HasSuffix(t, "%}}") {
-				name := scTagName(t)
-				inMultilineTag = true
-				multilineIsBlock = closedNames[name]
-			} else {
-				name := scTagName(t)
-				if closedNames[name] {
-					depth++
-				}
-			}
-			continue
-		}
-
-		// Inside a list-inline block: re-indent to list-continuation
-		// column plus depth-based offset.
-
-		// Opens and closes on the same line: net depth zero.
-		if scIsSelfContained(t) {
-			out.WriteString(indent())
-			out.WriteString(t)
-			out.WriteByte('\n')
-			continue
-		}
-
-		switch {
-		case scIsCloser(t):
-			if depth == 0 {
-				// This is the closer that matches the list-inline opener.
-				n := len(listIndentStack)
-				col := listIndentStack[n-1]
-				listIndentStack = listIndentStack[:n-1]
-				out.WriteString(strings.Repeat(" ", col))
-				out.WriteString(t)
-				out.WriteByte('\n')
-			} else {
-				depth--
-				out.WriteString(indent())
-				out.WriteString(t)
-				out.WriteByte('\n')
-			}
-
-		case scIsSelfClosing(t):
-			out.WriteString(indent())
-			out.WriteString(t)
-			out.WriteByte('\n')
-
-		case !strings.HasSuffix(t, ">}}") && !strings.HasSuffix(t, "%}}"):
-			// Multi-line opener inside a list block — emit as-is.
-			name := scTagName(t)
-			out.WriteString(ln.Text)
-			out.WriteByte('\n')
-			inMultilineTag = true
-			multilineIsBlock = closedNames[name]
-
-		default:
-			name := scTagName(t)
-			out.WriteString(indent())
-			out.WriteString(t)
-			out.WriteByte('\n')
-			if closedNames[name] {
-				depth++
-			}
-		}
+		return
 	}
 
-	return out.Bytes()
+	if s.inList() {
+		s.stepInList(ln.Text, t)
+	} else {
+		s.stepStandalone(ln.Text, t)
+	}
+}
+
+// stepStandalone handles a pure-tag line outside any list-inline block: emit it
+// verbatim, only tracking depth so a later list closer isn't misread.
+func (s *scState) stepStandalone(text, t string) {
+	s.emitVerbatim(text)
+	switch scClassify(t) {
+	case scSelfContained, scSelfClosing:
+		// net-zero depth
+	case scCloser:
+		if s.depth > 0 {
+			s.depth--
+		}
+	case scMultilineOpener:
+		s.inMultilineTag = true
+		s.multilineIsBlock = s.closedNames[scTagName(t)]
+	case scOpener:
+		if s.closedNames[scTagName(t)] {
+			s.depth++
+		}
+	}
+}
+
+// stepInList handles a pure-tag line inside a list-inline block: re-indent it to
+// the continuation base column plus depth-based offset.
+func (s *scState) stepInList(text, t string) {
+	switch scClassify(t) {
+	case scSelfContained, scSelfClosing:
+		s.emitIndented(s.indent(), t)
+	case scCloser:
+		if s.depth == 0 {
+			// Closer matching the list-inline opener: pop and align to its base.
+			n := len(s.listIndentStack)
+			col := s.listIndentStack[n-1]
+			s.listIndentStack = s.listIndentStack[:n-1]
+			s.emitIndented(strings.Repeat(" ", col), t)
+		} else {
+			s.depth--
+			s.emitIndented(s.indent(), t)
+		}
+	case scMultilineOpener:
+		s.emitVerbatim(text) // params span lines; re-indenting would misalign them
+		s.inMultilineTag = true
+		s.multilineIsBlock = s.closedNames[scTagName(t)]
+	case scOpener:
+		s.emitIndented(s.indent(), t)
+		if s.closedNames[scTagName(t)] {
+			s.depth++
+		}
+	}
+}
+
+// scTagKind classifies a pure shortcode tag line by its structural effect.
+type scTagKind int
+
+const (
+	scSelfContained   scTagKind = iota // opens and closes on the same line (net zero)
+	scCloser                           // "{{< /name >}}"
+	scSelfClosing                      // "{{< name />}}"
+	scMultilineOpener                  // opener whose ">}}"/"%}}" is on a later line
+	scOpener                           // single-line opener "{{< name … >}}"
+)
+
+// scEndsTag reports whether a trimmed line ends a shortcode tag on this line.
+func scEndsTag(trimmed string) bool {
+	return strings.HasSuffix(trimmed, ">}}") || strings.HasSuffix(trimmed, "%}}")
+}
+
+// scClassify categorizes a pure shortcode tag line (scIsPureTagLine == true).
+func scClassify(t string) scTagKind {
+	switch {
+	case scIsSelfContained(t):
+		return scSelfContained
+	case scIsCloser(t):
+		return scCloser
+	case scIsSelfClosing(t):
+		return scSelfClosing
+	case !scEndsTag(t):
+		return scMultilineOpener
+	default:
+		return scOpener
+	}
 }
 
 // scHandleMultilineContinuation processes a line inside a multi-line shortcode
@@ -305,6 +351,158 @@ func scIsSelfContained(trimmed string) bool {
 		return false
 	}
 	return strings.Contains(trimmed, "{{< /"+name) || strings.Contains(trimmed, "{{% /"+name)
+}
+
+// scLeadingSpaces returns the number of leading space characters in s.
+func scLeadingSpaces(s string) int {
+	return len(s) - len(strings.TrimLeft(s, " "))
+}
+
+// scExcludedLineSet marks every line that belongs to an excluded shortcode's
+// subtree — from the opener (single- or multi-line) through its matching closer,
+// inclusive, and everything nested in between. The main pass emits those lines
+// verbatim, so an excluded shortcode (e.g. "uplatnica") keeps whatever internal
+// alignment the author gave it. Because each subtree is balanced, skipping it
+// wholesale leaves the enclosing block's nesting depth undisturbed.
+//
+// Names are matched via a stack of open block shortcodes; the active exclusion
+// ends when the stack unwinds back to the depth at which it began.
+//
+//nolint:cyclop // linear tag scanner: complexity ≈ number of tag kinds handled; splitting fragments the state machine
+func scExcludedLineSet(lines []document.Line, exclude, closedNames map[string]bool) []bool {
+	marked := make([]bool, len(lines))
+	if len(exclude) == 0 {
+		return marked
+	}
+	var stack []string // names of currently-open block shortcodes
+	excludedFrom := -1 // stack depth where the active excluded subtree began; -1 = none
+	inMulti := false
+	multiName := ""
+	multiStart := -1
+
+	for i := range lines {
+		ln := lines[i]
+		if ln.InFence {
+			marked[i] = excludedFrom >= 0
+			continue
+		}
+		t := strings.TrimSpace(ln.Text)
+
+		if inMulti {
+			marked[i] = excludedFrom >= 0
+			if stillOpen, _ := scHandleMultilineContinuation(t, false, 0); !stillOpen {
+				inMulti = false
+				if !strings.HasSuffix(t, "/>}}") && closedNames[multiName] {
+					stack = append(stack, multiName)
+					if excludedFrom < 0 && exclude[multiName] {
+						excludedFrom = len(stack) - 1
+						for k := multiStart; k <= i; k++ {
+							marked[k] = true
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		if !scIsPureTagLine(t) {
+			marked[i] = excludedFrom >= 0
+			continue
+		}
+
+		switch scClassify(t) {
+		case scSelfContained:
+			marked[i] = excludedFrom >= 0 || exclude[scTagName(t)]
+		case scSelfClosing:
+			marked[i] = excludedFrom >= 0
+		case scCloser:
+			marked[i] = excludedFrom >= 0
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+				if excludedFrom >= 0 && len(stack) == excludedFrom {
+					excludedFrom = -1
+				}
+			}
+		case scMultilineOpener:
+			marked[i] = excludedFrom >= 0
+			inMulti = true
+			multiName = scTagName(t)
+			multiStart = i
+		case scOpener:
+			name := scTagName(t)
+			if closedNames[name] {
+				stack = append(stack, name)
+				if excludedFrom < 0 && exclude[name] {
+					excludedFrom = len(stack) - 1
+				}
+			}
+			marked[i] = excludedFrom >= 0
+		}
+	}
+	return marked
+}
+
+// scListContentCol returns the column that shortcode tags directly inside a
+// list-inline block (opened at lines[openerIdx]) should align to. It is the
+// leading indent of the list item's first direct continuation prose line — the
+// sibling content the author already positioned — so re-indented tags line up
+// with it rather than with a theoretical marker-width column. When the item has
+// no direct prose (only shortcode tags), it falls back to markerCol.
+//
+// "Direct" means at the block's top level: prose nested inside a child shortcode
+// (localDepth > 0) is ignored. The scan stops at the block's matching closer.
+//
+//nolint:cyclop // linear tag scanner: complexity ≈ number of tag kinds handled; splitting fragments the state machine
+func scListContentCol(lines []document.Line, openerIdx, markerCol int, closedNames map[string]bool) int {
+	localDepth := 0
+	inMulti := false
+	multiBlock := false
+	for j := openerIdx + 1; j < len(lines); j++ {
+		ln := lines[j]
+		if ln.InFence {
+			continue
+		}
+		t := strings.TrimSpace(ln.Text)
+
+		if inMulti {
+			stillOpen, _ := scHandleMultilineContinuation(t, false, 0)
+			if !stillOpen {
+				inMulti = false
+				if multiBlock && !strings.HasSuffix(t, "/>}}") {
+					localDepth++
+				}
+			}
+			continue
+		}
+
+		if t == "" {
+			continue
+		}
+		if !scIsPureTagLine(t) {
+			if localDepth == 0 {
+				// First direct continuation prose of the list item.
+				return scLeadingSpaces(ln.Text)
+			}
+			continue // nested content — not a direct sibling
+		}
+		switch scClassify(t) {
+		case scSelfContained, scSelfClosing:
+			// net-zero depth
+		case scCloser:
+			if localDepth == 0 {
+				return markerCol // block's matching closer; no direct prose found
+			}
+			localDepth--
+		case scMultilineOpener:
+			inMulti = true
+			multiBlock = closedNames[scTagName(t)]
+		case scOpener:
+			if closedNames[scTagName(t)] {
+				localDepth++
+			}
+		}
+	}
+	return markerCol
 }
 
 // scInlineListOpenerCol detects a block-opener shortcode embedded inline in a

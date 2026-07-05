@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-07-05
+
+### Fixed
+- `fmt` shortcode-indent pass now aligns list-item shortcode tags to the item's **actual continuation content** (the leading whitespace of its first direct prose line) instead of the theoretical marker-width column. Previously a block opened inline in a wide-marker list item — e.g. `10. {{< details … >}}` whose continuation prose sits at column 0 — had its inner tags and closer pushed to the marker column (4), one space past the sibling prose, adding unwanted indentation. Now they line up with the prose. When the item has no direct prose (a tag-only block such as a payment form), the pass still falls back to the marker-width column, preserving the previous behavior for those cases.
+
+### Added
+- `fmt` shortcode-indent is now configurable under a new `fmt.shortcode_indent` block in `.doclint.yaml`:
+  - `enabled` (default `true`) — set `false` to leave all shortcode indentation exactly as authored.
+  - `indent_width` (default `2`) — spaces added per nested-shortcode level.
+  - `exclude` — a list of shortcode names whose entire subtree (opener through matching closer, single- or multi-line) is emitted verbatim, so shortcodes with carefully hand-aligned internals (e.g. `uplatnica` payment forms) are never re-indented.
+
+  `doclint init` now documents these options in the starter config.
+
 ## [0.7.4] - 2026-07-05
 
 ### Fixed

@@ -45,8 +45,59 @@ type Config struct {
 	Ignore   []string               `yaml:"ignore"`
 	Paths    []string               `yaml:"paths"` // default lint/fmt targets when none given on the CLI
 	Custom   []CustomRule           `yaml:"custom"`
+	Fmt      FmtConfig              `yaml:"fmt"` // `fmt` command formatting-pass options
 
 	Dir string `yaml:"-"` // directory of the config file (relative-path base)
+}
+
+// FmtConfig configures the `fmt` command's formatting passes.
+type FmtConfig struct {
+	ShortcodeIndent ShortcodeIndentConfig `yaml:"shortcode_indent"`
+}
+
+// Default values for the shortcode-indent pass when a field is left unset.
+const (
+	defaultShortcodeIndentEnabled = true
+	defaultShortcodeIndentWidth   = 2
+)
+
+// ShortcodeIndentConfig configures the shortcode-indent formatting pass, which
+// re-indents Hugo shortcode tags opened inline in a list item to align with the
+// item's continuation content. Pointer fields distinguish "unset" (use the
+// default) from an explicit value.
+type ShortcodeIndentConfig struct {
+	Enabled     *bool    `yaml:"enabled"`      // run the pass at all (default true)
+	IndentWidth *int     `yaml:"indent_width"` // spaces per nesting level (default 2)
+	Exclude     []string `yaml:"exclude"`      // shortcode names whose subtree is left verbatim
+}
+
+// IsEnabled reports whether the shortcode-indent pass should run.
+func (c ShortcodeIndentConfig) IsEnabled() bool {
+	if c.Enabled == nil {
+		return defaultShortcodeIndentEnabled
+	}
+	return *c.Enabled
+}
+
+// Width returns the per-nesting-level indent width in spaces, clamped to a sane
+// default when unset or negative.
+func (c ShortcodeIndentConfig) Width() int {
+	if c.IndentWidth == nil || *c.IndentWidth < 0 {
+		return defaultShortcodeIndentWidth
+	}
+	return *c.IndentWidth
+}
+
+// ExcludeSet returns the excluded shortcode names as a set, or nil if none.
+func (c ShortcodeIndentConfig) ExcludeSet() map[string]bool {
+	if len(c.Exclude) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(c.Exclude))
+	for _, n := range c.Exclude {
+		m[n] = true
+	}
+	return m
 }
 
 // Default returns the built-in config used when no file is found.

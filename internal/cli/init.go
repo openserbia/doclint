@@ -45,6 +45,16 @@ settings:
 # ignore:
 #   - "**/node_modules/**"
 
+# 'fmt' command options. The shortcode-indent pass re-indents Hugo shortcode
+# tags opened inline in a list item to align with the item's continuation
+# content (falling back to the marker-width column when the item has no prose).
+# fmt:
+#   shortcode_indent:
+#     enabled: true       # set false to leave all shortcode indentation as-is
+#     indent_width: 2     # spaces added per nested-shortcode level
+#     exclude:            # shortcodes whose whole subtree is left verbatim
+#       - uplatnica
+
 # Project-specific declarative rules.
 # Types: required | length | not_equal | match | deny.
 custom:
