@@ -116,8 +116,8 @@ func formatShortcodeIndent(src []byte) []byte {
 			out.WriteByte('\n')
 			// Still track depth so we don't confuse a later list-inline
 			// closer with a standalone closer.
-			if strings.Contains(t, "}}{{") {
-				// Compound line: net zero.
+			if scIsSelfContained(t) {
+				// Opens and closes on the same line: net zero.
 			} else if scIsCloser(t) {
 				if depth > 0 {
 					depth--
@@ -140,8 +140,8 @@ func formatShortcodeIndent(src []byte) []byte {
 		// Inside a list-inline block: re-indent to list-continuation
 		// column plus depth-based offset.
 
-		// Compound line: net depth zero.
-		if strings.Contains(t, "}}{{") {
+		// Opens and closes on the same line: net depth zero.
+		if scIsSelfContained(t) {
 			out.WriteString(indent())
 			out.WriteString(t)
 			out.WriteByte('\n')
@@ -283,6 +283,28 @@ func scIsCloser(trimmed string) bool {
 // self-closing ("{{< tag />}}").
 func scIsSelfClosing(trimmed string) bool {
 	return strings.HasSuffix(trimmed, "/>}}")
+}
+
+// scIsSelfContained reports whether a pure-tag line both opens and closes the
+// same block on a single line, giving it a net-zero effect on nesting depth.
+// Examples:
+//
+//	"{{< alert >}}text{{< /alert >}}" → true  (text between open and close)
+//	"{{< tabs >}}{{< /tabs >}}"       → true  (adjacent open and close)
+//	"{{< details \"…{{< x >}}…\" >}}" → false (inner tag is a quoted param)
+//
+// It is name-aware: it only reports true when a closer for the SAME name as the
+// opener appears later on the line, so a line with two distinct openers is not
+// mistaken for net-zero.
+func scIsSelfContained(trimmed string) bool {
+	if scIsCloser(trimmed) {
+		return false
+	}
+	name := scTagName(trimmed)
+	if name == "" {
+		return false
+	}
+	return strings.Contains(trimmed, "{{< /"+name) || strings.Contains(trimmed, "{{% /"+name)
 }
 
 // scInlineListOpenerCol detects a block-opener shortcode embedded inline in a

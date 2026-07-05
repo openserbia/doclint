@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-07-05
+
+### Fixed
+- `fmt` shortcode-indent pass no longer cascades spurious indentation after a **single-line block shortcode** — one that opens and closes on the same line, e.g. `{{< alert >}}текст{{< /alert >}}`. Such a line was misread as a bare block opener because the pass only recognised *adjacent* compound tags (`}}{{`), not a compound line with text between the open and close. That incremented the internal depth counter with no matching closer, and because depth and the list-continuation stack are global for the whole document, the desync then made every following closer pop the wrong stack — leaving stale entries that wrongly indented every subsequent standalone shortcode (including single-tag shortcodes with no closer like `{{% tr-permanent-trivial-docs %}}` and unrelated top-level `{{< details >}}` blocks), with the indent growing at each nested level. Compound lines are now detected name-aware (a closer for the *same* shortcode name later on the line) and treated as net-zero, so they no longer corrupt depth tracking.
+
 ## [0.7.3] - 2026-07-04
 
 ### Changed

@@ -245,6 +245,93 @@ func TestSCFmt_ListNestedBlockShortcodes(t *testing.T) {
 	scIdempotent(t, in)
 }
 
+// TestSCFmt_SelfContainedLineNoCascade: a single-line block shortcode that
+// opens and closes on the same line ("{{< alert >}}text{{< /alert >}}") has a
+// net-zero effect on nesting depth. It must not leave stale depth/list state
+// that wrongly indents later standalone shortcodes — a regression guard against
+// the cascading-indentation bug.
+func TestSCFmt_SelfContainedLineNoCascade(t *testing.T) {
+	// "alert" is registered as a block name via the multi-line form up top,
+	// then reused as a one-line compound. The trailing standalone shortcode and
+	// the details block after the list must stay at column 0.
+	in := "" +
+		"{{< alert >}}\n" +
+		"multi-line\n" +
+		"{{< /alert >}}\n" +
+		"\n" +
+		"<details><summary>S</summary>\n" +
+		"\n" +
+		"  {{< alert icon=\"i\" >}}One-line compound.{{< /alert >}}\n" +
+		"\n" +
+		"- {{% tr-common %}}\n" +
+		"- {{< details \"Inner\" >}}\n" +
+		"  - foo\n" +
+		"  {{< /details >}}\n" +
+		"- {{% tr-apartment %}}\n" +
+		"{{% tr-permanent-trivial %}}\n" +
+		"\n" +
+		"</details>\n" +
+		"\n" +
+		"{{< details \"Standalone\" >}}\n" +
+		"{{< inner key=\"x\" >}}\n" +
+		"{{< /details >}}\n"
+	if got := scfmt(in); got != in {
+		t.Errorf("self-contained line caused cascade:\ngot:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
+// TestSCFmt_RealPermanentResidenceOffline is a faithful regression test using
+// the exact content that triggered the cascading-indentation bug in
+// content/ru/guides/permanent-residence/offline/index.md.
+//
+// The trigger chain, all reproduced verbatim below:
+//  1. A multi-line {{< alert >}}…{{< /alert >}} registers "alert" as a block name.
+//  2. The "Работа" section reuses alert as a ONE-LINE compound
+//     ("{{< alert … >}}текст{{< /alert >}}"). The old pass misread it as a bare
+//     opener, corrupting the global depth counter.
+//  3. That corruption cascaded: the trailing standalone "{{% tr-permanent-trivial-docs %}}"
+//     and the later top-level "{{< details … >}}" block under the "Пошлина"
+//     heading (which contains a nested {{< tax-sum >}} in its title) both got
+//     spurious indentation.
+//
+// The whole block is already correctly indented, so the pass must leave it
+// byte-for-byte unchanged.
+func TestSCFmt_RealPermanentResidenceOffline(t *testing.T) {
+	in := `{{< alert icon="🚧" context="warning">}}
+- Если юридический адрес ИП в коворкинге, МУПу все равно для ПМЖ.
+- Если юридический адрес ИП в другом городе, нужно перенести юр. адрес.
+{{< /alert >}}
+
+<details><summary>Документы по основанию - Работа</summary>
+
+  {{< alert icon="💡" context="info">}}Этот тип заявления подходит если вы официально трудоустроены в штат в сербскую фирму на территории Сербии.{{< /alert >}}
+
+- {{% tr-common-permanent-docs %}}
+- {{% tr-funds-docs %}}
+- {{< details "Документы по работе:" >}}
+  - Рабочий договор где видно что вы официально трудоустроены
+  - (Для Нового Сада) [Извод из АПР]({{< relref "/guides/business/changing-data#извод" >}} "выписку из реестра") в которой вы работаете
+    - Не старше 30 дней
+  {{< /details >}}
+- {{% tr-apartment-docs "(Очень редко спрашивают) Документы на квартиру в которой проживаете" %}}
+- {{% tr-education-docs "(Иногда просят) " %}}
+{{% tr-permanent-trivial-docs %}}
+
+</details>
+
+### Пошлина за подачу на ПМЖ
+
+{{< details "Оплата онлайн на eUprava ({{< tax-sum permanent_residence_zahtev_fee permanent_residence_approval_fee >}})" >}}
+{{< euprava-payment key="permanent_residence_approval_fee" image="media/euprava-odobrenje-stalnog-nastanjenja.webp" >}}
+{{< /details >}}
+`
+	if got := scfmt(in); got != in {
+		t.Errorf("real offline/index.md content was re-indented:\ngot:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener
 // must not panic or produce negative depth.
 func TestSCFmt_DepthNeverGoesNegative(t *testing.T) {
