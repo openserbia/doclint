@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-07-05
+
+### Fixed
+- `fmt` shortcode-indent pass no longer misreads a **complete shortcode tag with trailing content** as a multi-line opener. A line like `{{<figure … >}}</center>` ends in `</center>`, not `>}}`, so the previous suffix check (`!HasSuffix(">}}")`) classified it as an unterminated opener and swallowed the following line (e.g. `{{< /step >}}`) as a fake tag terminator. That left the internal depth counter off by one, so a later list-inline block never popped its stack and every subsequent standalone shortcode — such as `{{< steps >}}`/`{{< step >}}` blocks — was wrongly indented. Multi-line openers are now detected by the *absence of a tag terminator anywhere on the line* (`Contains`, not `HasSuffix`), so a complete tag followed by trailing markup is handled correctly.
+
 ## [0.7.5] - 2026-07-05
 
 ### Fixed

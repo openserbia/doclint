@@ -217,9 +217,13 @@ const (
 	scOpener                           // single-line opener "{{< name … >}}"
 )
 
-// scEndsTag reports whether a trimmed line ends a shortcode tag on this line.
-func scEndsTag(trimmed string) bool {
-	return strings.HasSuffix(trimmed, ">}}") || strings.HasSuffix(trimmed, "%}}")
+// scHasTagClose reports whether a trimmed line contains a shortcode tag
+// terminator (">}}" or "%}}") anywhere — meaning a tag opened on this line also
+// closes on it. Its ABSENCE is what marks a multi-line opener. A plain suffix
+// check is wrong for a complete tag with trailing content, e.g.
+// "{{<figure … >}}</center>", which ends in "</center>" yet is not multi-line.
+func scHasTagClose(trimmed string) bool {
+	return strings.Contains(trimmed, ">}}") || strings.Contains(trimmed, "%}}")
 }
 
 // scClassify categorizes a pure shortcode tag line (scIsPureTagLine == true).
@@ -231,7 +235,7 @@ func scClassify(t string) scTagKind {
 		return scCloser
 	case scIsSelfClosing(t):
 		return scSelfClosing
-	case !scEndsTag(t):
+	case !scHasTagClose(t):
 		return scMultilineOpener
 	default:
 		return scOpener

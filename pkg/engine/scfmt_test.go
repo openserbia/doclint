@@ -451,6 +451,36 @@ func TestSCFmt_ExcludeShortcodeSubtree(t *testing.T) {
 	}
 }
 
+// TestSCFmt_CompleteTagWithTrailingContentNoCascade: a pure-tag line that is a
+// COMPLETE shortcode tag followed by trailing content — e.g.
+// "{{<figure … >}}</center>" — must not be mistaken for a multi-line opener.
+// Misreading it swallows the next line ({{< /step >}}) as a fake tag terminator,
+// corrupting depth so a later list-inline block never pops its stack, cascading
+// spurious indentation onto subsequent standalone shortcodes. Real pattern from
+// personal/police-certificate (a {{< steps >}} block with centered figures).
+func TestSCFmt_CompleteTagWithTrailingContentNoCascade(t *testing.T) {
+	in := "" +
+		"{{< steps >}}\n" +
+		"\n" +
+		"{{< step >}}\n" +
+		"{{<figure src=\"b.jpg\" width=250 >}}</center>\n" +
+		"{{< /step >}}\n" +
+		"\n" +
+		"{{< /steps >}}\n" +
+		"\n" +
+		"1. {{< details \"X\" >}}\n" +
+		"   content\n" +
+		"   {{< /details >}}\n" +
+		"\n" +
+		"{{< steps >}}\n"
+	// Everything is already correctly positioned; the trailing standalone
+	// {{< steps >}} must stay at column 0 (no cascade).
+	if got := scfmt(in); got != in {
+		t.Errorf("complete-tag-with-trailing-content caused cascade:\ngot:\n%s\nwant:\n%s", got, in)
+	}
+	scIdempotent(t, in)
+}
+
 // TestSCFmt_DepthNeverGoesNegative: a stray closer with no matching opener
 // must not panic or produce negative depth.
 func TestSCFmt_DepthNeverGoesNegative(t *testing.T) {
