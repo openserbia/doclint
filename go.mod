@@ -1,6 +1,6 @@
 module github.com/openserbia/doclint
 
-go 1.26
+go 1.27
 
 require (
 	github.com/adrg/frontmatter v0.2.0
