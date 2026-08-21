@@ -7,6 +7,22 @@ vars:
     sh: grep -m 1 "^module" go.mod | awk '{print $2}'
 
 tasks:
+  secrets:
+    desc: Scan the working tree and git history for committed credentials
+    # Two passes, because they answer different questions: `dir` catches a
+    # secret on its way into a commit, `git` catches one that is already in
+    # history and was later deleted: removing the line does not remove the
+    # blob.
+    #
+    # No sources/generates: the history pass depends on commits, which change
+    # without any tracked file changing, so a cached "up to date" would lie.
+    #
+    # .gitleaks.toml allowlists .env, vendor/ and the build/cache trees;
+    # everything else, untracked files included, is scanned.
+    cmds:
+      - gitleaks dir . --redact --no-banner --verbose
+      - gitleaks git --redact --no-banner --verbose
+
   deps:
     desc: Download, tidy, vendor deps + govulncheck
     sources: [go.mod, go.sum]
@@ -20,15 +36,31 @@ tasks:
 
   fmt:
     desc: Format go code
+    # golangci-lint v2 runs formatters itself, configured under `formatters:`
+    # in .golangci.yml. Shelling out to standalone gci and gofumpt here would
+    # apply the same two rewriters a second time, from separately pinned
+    # binaries that can drift from the ones golangci-lint has vendored. One
+    # tool, one config, one version.
     deps: [deps]
     cmds:
-      - gci write -s standard -s default -s "prefix({{.ROOT_REPO}})" -s "prefix({{.PACKAGE_NAME}})" --skip-generated cmd internal pkg
-      - gofumpt -l -w .
+      - golangci-lint fmt
+
+  vet:
+    desc: Report standard library symbols newer than the go directive in go.mod
+    # `go test` runs stdversion by default from Go 1.27 on, but the lint
+    # workflow does not run tests. This is the standalone gate: it catches a
+    # go.mod left behind on an older go directive while the code has already
+    # started using symbols from a newer standard library, which otherwise
+    # only surfaces for whoever builds with the older toolchain.
+    deps: [ deps ]
+    cmds:
+      - go vet -stdversion ./...
 
   lint:
     desc: Run go linters
     deps: [fmt]
     cmds:
+      - task: vet
       - golangci-lint run
 
   test:

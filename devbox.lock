@@ -1,54 +1,6 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "gci@latest": {
-      "last_modified": "2026-05-21T08:15:18Z",
-      "resolved": "github:NixOS/nixpkgs/4a29d733e8a7d5b824c3d8c958a946a9867b3eb2#gci",
-      "source": "devbox-search",
-      "version": "0.14.0",
-      "systems": {
-        "aarch64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/l7nlq3d938ddhxfclaav02yacd18pyx4-gci-0.14.0",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/l7nlq3d938ddhxfclaav02yacd18pyx4-gci-0.14.0"
-        },
-        "aarch64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/5b8m5jv9g5fk4glandyh5rjcswfbjm9j-gci-0.14.0",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/5b8m5jv9g5fk4glandyh5rjcswfbjm9j-gci-0.14.0"
-        },
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/5k5iqjympnwi26iry715yfn3j5zp99i0-gci-0.14.0",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/5k5iqjympnwi26iry715yfn3j5zp99i0-gci-0.14.0"
-        },
-        "x86_64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/0519qj2p7jwrfbbzfkm8av1dr9dc30jc-gci-0.14.0",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/0519qj2p7jwrfbbzfkm8av1dr9dc30jc-gci-0.14.0"
-        }
-      }
-    },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "last_modified": "2026-06-23T00:43:55Z",
       "resolved": "github:NixOS/nixpkgs/89570f24e97e614aa34aa9ab1c927b6578a43775?lastModified=1782175435&narHash=sha256-EMzXKmnOtBQ2MnvpiNOm7E%2BkOMvdPrIKaeg52Tip2Uk%3D"
@@ -57,10 +9,6 @@
       "last_modified": "2026-08-20T17:28:17Z",
       "resolved": "github:openserbia/go-flake/a940a206b47227f54e7286f5eb77f70e67d20635?lastModified=1787246897&narHash=sha256-Pw3Y3B9noJmPqoV%2FSvFrC3UO32CCHswiSrM7e7a7a70%3D#go_1_27_0"
     },
-    "github:openserbia/go-flake#gofumpt_0_11_0": {
-      "last_modified": "2026-08-20T17:28:17Z",
-      "resolved": "github:openserbia/go-flake/a940a206b47227f54e7286f5eb77f70e67d20635?lastModified=1787246897&narHash=sha256-Pw3Y3B9noJmPqoV%2FSvFrC3UO32CCHswiSrM7e7a7a70%3D#gofumpt_0_11_0"
-    },
     "github:openserbia/go-flake#golangci-lint_2_13_1": {
       "last_modified": "2026-08-20T17:28:17Z",
       "resolved": "github:openserbia/go-flake/a940a206b47227f54e7286f5eb77f70e67d20635?lastModified=1787246897&narHash=sha256-Pw3Y3B9noJmPqoV%2FSvFrC3UO32CCHswiSrM7e7a7a70%3D#golangci-lint_2_13_1"
@@ -68,6 +16,54 @@
     "github:openserbia/go-flake#govulncheck_1_7_0": {
       "last_modified": "2026-08-20T17:28:17Z",
       "resolved": "github:openserbia/go-flake/a940a206b47227f54e7286f5eb77f70e67d20635?lastModified=1787246897&narHash=sha256-Pw3Y3B9noJmPqoV%2FSvFrC3UO32CCHswiSrM7e7a7a70%3D#govulncheck_1_7_0"
+    },
+    "gitleaks@latest": {
+      "last_modified": "2026-08-12T11:28:58Z",
+      "resolved": "github:NixOS/nixpkgs/044bfe75bfe4c7bbe043dc17b5e42ea823b84a09#gitleaks",
+      "source": "devbox-search",
+      "version": "8.30.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0zilxn1s7vskm1b8jxbyic99aql7zzaq-gitleaks-8.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0zilxn1s7vskm1b8jxbyic99aql7zzaq-gitleaks-8.30.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/7fbpgnngix9bnqgflzfybz2i8nrr8cmj-gitleaks-8.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/7fbpgnngix9bnqgflzfybz2i8nrr8cmj-gitleaks-8.30.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/v5x4dkl13y4nxhcaq4xmrwkidy44gv9p-gitleaks-8.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/v5x4dkl13y4nxhcaq4xmrwkidy44gv9p-gitleaks-8.30.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dmi3zxbmff31nb0j6y24wi2055k7ahsw-gitleaks-8.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dmi3zxbmff31nb0j6y24wi2055k7ahsw-gitleaks-8.30.1"
+        }
+      }
     },
     "go-task@latest": {
       "last_modified": "2026-05-21T08:15:18Z",
