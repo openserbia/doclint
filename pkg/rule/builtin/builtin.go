@@ -14,6 +14,7 @@ func Register(reg *rule.Registry) {
 	reg.Register(BlanksAroundHeadings{})
 	reg.Register(FencedCodeLanguage{})
 	reg.Register(NoAltText{})
+	reg.Register(NoForbiddenSymbols{})
 	reg.Register(NoTrailingSpaces{})
 	reg.Register(NoBrokenAnchor{})
 	reg.Register(ListMarkerIndent{})

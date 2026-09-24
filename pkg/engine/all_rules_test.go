@@ -77,6 +77,9 @@ func TestAllBuiltinRules_Regression(t *testing.T) {
 		// no-alt-text: image with empty alt
 		"![](https://example.com/img.png)",
 		"",
+		// no-forbidden-symbols: em dash in prose
+		"First point — second point.",
+		"",
 		// no-trailing-spaces: trailing space
 		"trailing space here \n",
 		// no-broken-anchor: anchor that doesn't exist
@@ -134,6 +137,7 @@ func TestAllBuiltinRules_Regression(t *testing.T) {
 		"blanks-around-headings",
 		"fenced-code-language",
 		"no-alt-text",
+		"no-forbidden-symbols",
 		"no-trailing-spaces",
 		"no-broken-anchor",
 		"list-marker-indent",

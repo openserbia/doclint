@@ -85,6 +85,7 @@ and data directories (or use `ignore` globs in config).
 | [Blank lines around headings](docs/rules/blanks-around-headings.md) (`blanks-around-headings`) | warning | safe | headings should be surrounded by blank lines |
 | [Code fence language](docs/rules/fenced-code-language.md) (`fenced-code-language`) | warning | — | fenced code blocks should specify a language for syntax highlighting |
 | [Image alt text](docs/rules/no-alt-text.md) (`no-alt-text`) | warning | — | images should have non-empty alt text for accessibility and SEO |
+| [Forbidden symbols](docs/rules/no-forbidden-symbols.md) (`no-forbidden-symbols`) | warning | — | avoid em dashes and middle dots in Markdown text |
 | [Trailing whitespace](docs/rules/no-trailing-spaces.md) (`no-trailing-spaces`) | warning | safe | remove stray trailing spaces while preserving the two-space hard line break |
 | [Valid in-page anchor links](docs/rules/no-broken-anchor.md) (`no-broken-anchor`) | warning | — | in-page anchor links must point at a heading in the same page |
 | [List item body indentation](docs/rules/list-marker-indent.md) (`list-marker-indent`) | warning | unsafe | list item bodies must indent to the marker's content column |

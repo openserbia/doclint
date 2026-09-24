@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-24
+
+### Added
+- The built-in `no-forbidden-symbols` rule reports em dashes and middle dots in Markdown text and frontmatter. It skips fenced and inline code, reports each occurrence at its character column, and leaves the wording to be fixed by hand.
+
 ## [0.7.6] - 2026-07-05
 
 ### Fixed
