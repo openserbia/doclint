@@ -8,6 +8,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.9.0] - 2026-09-28
 
+### Added
+- `settings.no-forbidden-symbols.symbols` in `.doclint.yaml`: a list of single characters that replaces the rule's default list. An empty list flags nothing, an entry longer than one character is a config error, and `symbols` on a rule that has no symbol list is a config error. `doclint init` documents it in the starter config.
+
 ### Changed
 - `no-forbidden-symbols` also reports semicolons (`;`) in Markdown text and frontmatter. The semicolon that closes an HTML character reference (`&nbsp;`, `&#8212;`, `&#x2014;`) is not reported, and fenced and inline code stay skipped.
 

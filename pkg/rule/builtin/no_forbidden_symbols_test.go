@@ -34,3 +34,34 @@ func TestNoForbiddenSymbols(t *testing.T) {
 		}
 	}
 }
+
+func TestNoForbiddenSymbolsWithOptions(t *testing.T) {
+	raw := []byte("A — b; c! d¡\n`!`\n")
+	doc, err := document.ParseMarkdown("test.md", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(symbols []string) []rule.Finding {
+		t.Helper()
+		r, err := (builtin.NoForbiddenSymbols{}).WithOptions(rule.Options{Symbols: symbols})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []rule.Finding
+		r.Check(doc, func(f rule.Finding) { got = append(got, f) })
+		return got
+	}
+
+	got := check([]string{"!", "¡"})
+	if len(got) != 2 || got[0].Col != 9 || got[0].Message != "forbidden symbol '!'" || got[1].Col != 12 || got[1].Message != "forbidden symbol '¡'" {
+		t.Errorf("custom list: got %+v, want '!' at col 9 and '¡' at col 12 only", got)
+	}
+	if got := check([]string{}); len(got) != 0 {
+		t.Errorf("empty list: got %+v, want no findings", got)
+	}
+	for _, bad := range []string{"", "ab"} {
+		if _, err := (builtin.NoForbiddenSymbols{}).WithOptions(rule.Options{Symbols: []string{bad}}); err == nil {
+			t.Errorf("symbol %q: want an error", bad)
+		}
+	}
+}

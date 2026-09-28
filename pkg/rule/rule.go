@@ -110,6 +110,18 @@ type Rule interface {
 	Check(doc *document.Document, report func(Finding))
 }
 
+// Options carries per-rule settings from the config beyond severity.
+type Options struct {
+	Symbols []string // replaces a symbol-list rule's defaults when non-nil
+}
+
+// Configurable is a Rule that accepts Options. The engine hands settings only
+// to rules that implement it, and rejects them for any other rule.
+type Configurable interface {
+	Rule
+	WithOptions(Options) (Rule, error)
+}
+
 // docBaseURL is the GitHub blob path of the generated per-rule reference pages.
 const docBaseURL = "https://github.com/openserbia/doclint/blob/main/docs/rules/"
 

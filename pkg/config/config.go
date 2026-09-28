@@ -16,9 +16,11 @@ const ConfigName = ".doclint.yaml"
 // defaultPreset is the rule-preset used when none is specified.
 const defaultPreset = "standard"
 
-// RuleSetting overrides a rule's defaults.
+// RuleSetting overrides a rule's defaults. Symbols is read only by rules that
+// take a symbol list (no-forbidden-symbols); nil keeps the rule's default list.
 type RuleSetting struct {
-	Severity string `yaml:"severity"`
+	Severity string   `yaml:"severity"`
+	Symbols  []string `yaml:"symbols"`
 }
 
 // CustomRule is one declarative rule (mirrors rule.DeclSpec; kept decoupled so

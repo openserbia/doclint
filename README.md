@@ -115,6 +115,8 @@ paths:                       # default lint/fmt targets when none are passed on 
 settings:
   details-blank-line:
     severity: error
+  no-forbidden-symbols:
+    symbols: ["—", "·", ";", "…"]  # replaces the default list; one character each
 ignore:
   - "node_modules/**"
 custom:
@@ -134,6 +136,11 @@ custom:
 ```
 
 `enable` force-enables specific rules by name regardless of `default`; `disable` force-disables them.
+
+Under `settings`, every rule takes `severity`. `no-forbidden-symbols` also takes
+`symbols`, a list of single characters that replaces its default list (em dash,
+middle dot, semicolon); an empty list flags nothing. `symbols` on any other rule
+is a config error.
 
 ### Inline suppression
 

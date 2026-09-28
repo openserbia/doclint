@@ -9,7 +9,7 @@
 
 ## How to fix
 
-The em dash (—), middle dot (·) and semicolon (;) are forbidden in Markdown text, including frontmatter. Each occurrence is reported separately. Fenced and inline code are ignored because these characters can be part of literal examples, and so is the semicolon that closes an HTML character reference such as `&nbsp;`. Rewrite the surrounding sentence by hand: there is no automatic replacement that preserves its meaning.
+The em dash (—), middle dot (·) and semicolon (;) are forbidden in Markdown text, including frontmatter. Each occurrence is reported separately. Fenced and inline code are ignored because these characters can be part of literal examples, and so is the semicolon that closes an HTML character reference such as `&nbsp;`. Rewrite the surrounding sentence by hand: there is no automatic replacement that preserves its meaning. To use a different list, set `symbols` under `settings.no-forbidden-symbols` in .doclint.yaml, one character per entry; it replaces the default list.
 
 ## Example
 

@@ -55,3 +55,39 @@ func TestEngine_RunFindsAndFixes(t *testing.T) {
 		t.Fatalf("expected 1 changed file, got %d", len(fixed))
 	}
 }
+
+func TestEngine_SymbolsSetting(t *testing.T) {
+	dir := t.TempDir()
+	md := filepath.Join(dir, "post.md")
+	if err := os.WriteFile(md, []byte("One — two; three!\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reg := rule.NewRegistry()
+	builtin.Register(reg)
+
+	cfg := config.Default()
+	cfg.Default = "none"
+	cfg.Enable = []string{"no-forbidden-symbols"}
+	cfg.Settings["no-forbidden-symbols"] = config.RuleSetting{Severity: "error", Symbols: []string{"!"}}
+	eng, err := New(cfg, reg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	res, err := eng.Run(context.Background(), []string{dir})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Message != "forbidden symbol '!'" || res.Findings[0].Severity != rule.Error {
+		t.Errorf("got %+v, want one error for '!'", res.Findings)
+	}
+
+	cfg.Settings["no-trailing-spaces"] = config.RuleSetting{Symbols: []string{"!"}}
+	if _, err := New(cfg, reg); err == nil {
+		t.Error("symbols on a rule without a symbol list: want an error")
+	}
+	cfg.Settings["no-trailing-spaces"] = config.RuleSetting{}
+	cfg.Settings["no-forbidden-symbols"] = config.RuleSetting{Symbols: []string{"ab"}}
+	if _, err := New(cfg, reg); err == nil {
+		t.Error("multi-character symbol: want an error")
+	}
+}

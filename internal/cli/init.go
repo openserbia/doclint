@@ -40,6 +40,10 @@ default: standard
 settings:
   details-blank-line:
     severity: error
+# no-forbidden-symbols takes its own list, one character per entry, replacing
+# the default (em dash, middle dot, semicolon):
+#   no-forbidden-symbols:
+#     symbols: ["—", "·", ";"]
 
 # Globs (relative to this file) to skip entirely:
 # ignore:

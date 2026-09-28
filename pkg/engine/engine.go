@@ -63,6 +63,15 @@ func (r *Result) ExitCode() int {
 // plus compiled declarative rules from the config `custom:` block.
 func New(cfg *config.Config, reg *rule.Registry) (*Engine, error) {
 	e := &Engine{cfg: cfg, builtin: map[string]bool{}}
+	// A symbols setting only means something to a Configurable rule; reject it
+	// elsewhere even while that rule is off, so a typo can't go unnoticed.
+	for _, r := range reg.All() {
+		if set, ok := cfg.Settings[r.Meta().Name]; ok && set.Symbols != nil {
+			if _, ok := r.(rule.Configurable); !ok {
+				return nil, fmt.Errorf("rule %s: does not take a symbols setting", r.Meta().Name)
+			}
+		}
+	}
 	disabled := toSet(cfg.Disable)
 	enabled := toSet(cfg.Enable)
 
@@ -388,7 +397,18 @@ func (s settingRule) Check(doc *document.Document, report func(rule.Finding)) {
 
 func applySetting(r rule.Rule, cfg *config.Config) (rule.Rule, error) {
 	set, ok := cfg.Settings[r.Meta().Name]
-	if !ok || set.Severity == "" {
+	if !ok {
+		return r, nil
+	}
+	if set.Symbols != nil {
+		c, _ := r.(rule.Configurable) // checked in New
+		configured, err := c.WithOptions(rule.Options{Symbols: set.Symbols})
+		if err != nil {
+			return nil, fmt.Errorf("rule %s: %w", r.Meta().Name, err)
+		}
+		r = configured
+	}
+	if set.Severity == "" {
 		return r, nil
 	}
 	sev, err := rule.ParseSeverity(set.Severity)
