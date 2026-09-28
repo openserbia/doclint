@@ -9,7 +9,7 @@ import (
 )
 
 func TestNoForbiddenSymbols(t *testing.T) {
-	raw := []byte("---\ntitle: A · B\n---\nПривет — word · end\n`— ·`\n```text\n— ·\n```\n")
+	raw := []byte("---\ntitle: A · B\n---\nПривет — word · end\n`— · ;`\n```text\n— · ;\n```\nOne; two&nbsp;three &#8212; &#x2014; &amp;\n")
 	doc, err := document.ParseMarkdown("test.md", raw)
 	if err != nil {
 		t.Fatal(err)
@@ -23,6 +23,7 @@ func TestNoForbiddenSymbols(t *testing.T) {
 		{2, 10, "forbidden symbol '·'"},
 		{4, 8, "forbidden symbol '—'"},
 		{4, 15, "forbidden symbol '·'"},
+		{9, 4, "forbidden symbol ';'"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d findings, want %d: %+v", len(got), len(want), got)

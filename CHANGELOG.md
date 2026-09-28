@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-28
+
+### Changed
+- `no-forbidden-symbols` also reports semicolons (`;`) in Markdown text and frontmatter. The semicolon that closes an HTML character reference (`&nbsp;`, `&#8212;`, `&#x2014;`) is not reported, and fenced and inline code stay skipped.
+
 ## [0.8.0] - 2026-09-24
 
 ### Added

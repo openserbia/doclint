@@ -81,14 +81,16 @@ and data directories (or use `ignore` globs in config).
 | [Space after heading hashes](docs/rules/no-missing-space-atx.md) (`no-missing-space-atx`) | error | safe | require a space after the # of an ATX heading so it renders |
 | [Heading at the left margin](docs/rules/heading-start-left.md) (`heading-start-left`) | warning | safe | ATX headings should start at the left margin (no leading indentation) |
 | [Blank lines around code fences](docs/rules/blanks-around-fences.md) (`blanks-around-fences`) | warning | safe | fenced code blocks should be surrounded by blank lines |
+| [Blank lines around thematic breaks](docs/rules/blanks-around-thematic-break.md) (`blanks-around-thematic-break`) | warning | safe | thematic breaks (--- / *** / ___) should be surrounded by blank lines |
 | [Blank lines around lists](docs/rules/blanks-around-lists.md) (`blanks-around-lists`) | warning | safe | lists should be surrounded by blank lines |
 | [Blank lines around headings](docs/rules/blanks-around-headings.md) (`blanks-around-headings`) | warning | safe | headings should be surrounded by blank lines |
 | [Code fence language](docs/rules/fenced-code-language.md) (`fenced-code-language`) | warning | — | fenced code blocks should specify a language for syntax highlighting |
 | [Image alt text](docs/rules/no-alt-text.md) (`no-alt-text`) | warning | — | images should have non-empty alt text for accessibility and SEO |
-| [Forbidden symbols](docs/rules/no-forbidden-symbols.md) (`no-forbidden-symbols`) | warning | — | avoid em dashes and middle dots in Markdown text |
+| [Forbidden symbols](docs/rules/no-forbidden-symbols.md) (`no-forbidden-symbols`) | warning | — | avoid em dashes, middle dots and semicolons in Markdown text |
 | [Trailing whitespace](docs/rules/no-trailing-spaces.md) (`no-trailing-spaces`) | warning | safe | remove stray trailing spaces while preserving the two-space hard line break |
 | [Valid in-page anchor links](docs/rules/no-broken-anchor.md) (`no-broken-anchor`) | warning | — | in-page anchor links must point at a heading in the same page |
 | [List item body indentation](docs/rules/list-marker-indent.md) (`list-marker-indent`) | warning | unsafe | list item bodies must indent to the marker's content column |
+| [Blank lines around <center> blocks](docs/rules/blanks-around-center.md) (`blanks-around-center`) | warning | safe | <center>…</center> blocks should be surrounded by blank lines |
 
 <!-- rules:end -->
 
