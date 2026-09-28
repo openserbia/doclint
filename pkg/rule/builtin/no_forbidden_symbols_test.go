@@ -1,6 +1,8 @@
 package builtin_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/openserbia/doclint/pkg/document"
@@ -63,5 +65,39 @@ func TestNoForbiddenSymbolsWithOptions(t *testing.T) {
 		if _, err := (builtin.NoForbiddenSymbols{}).WithOptions(rule.Options{Symbols: []string{bad}}); err == nil {
 			t.Errorf("symbol %q: want an error", bad)
 		}
+	}
+}
+
+func TestNoForbiddenSymbolsSkipsMarkup(t *testing.T) {
+	raw := []byte(strings.Join([]string{
+		`<style>`,
+		`.a{color:red;margin:0}`,
+		`</style>`,
+		`<div style="padding: 1rem;`,
+		`  color: white;">Prose; flagged</div>`,
+		`{{< uf-field options="53=a;153=b" >}}`,
+		`{{< figure`,
+		`    caption="x; y" >}}`,
+		`<script>let a = 1;</script> after; flagged`,
+		`a < b; flagged — too`,
+		`<br/>ok · flagged`,
+	}, "\n") + "\n")
+	doc, err := document.ParseMarkdown("test.md", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	(builtin.NoForbiddenSymbols{}).Check(doc, func(f rule.Finding) {
+		got = append(got, fmt.Sprintf("%d:%d %s", f.Line, f.Col, f.Message))
+	})
+	want := []string{
+		"5:23 forbidden symbol ';'",
+		"9:34 forbidden symbol ';'",
+		"10:6 forbidden symbol ';'",
+		"10:16 forbidden symbol '—'",
+		"11:9 forbidden symbol '·'",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

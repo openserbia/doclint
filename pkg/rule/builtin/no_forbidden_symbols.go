@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/openserbia/doclint/pkg/document"
@@ -53,7 +54,9 @@ func (NoForbiddenSymbols) Meta() rule.Meta {
 		Detail: "The em dash (—), middle dot (·) and semicolon (;) are forbidden in " +
 			"Markdown text, including frontmatter. Each occurrence is reported " +
 			"separately. Fenced and inline code are ignored because these characters " +
-			"can be part of literal examples, and so is the semicolon that closes an " +
+			"can be part of literal examples. So is markup, where these characters are " +
+			"syntax: HTML tags and their attributes, the bodies of <style> and <script> " +
+			"elements, Hugo shortcode tags, and the semicolon that closes an " +
 			"HTML character reference such as `&nbsp;`. Rewrite the surrounding " +
 			"sentence by hand: there is no automatic replacement that preserves its meaning. " +
 			"To use a different list, set `symbols` under `settings.no-forbidden-symbols` " +
@@ -69,14 +72,16 @@ func (NoForbiddenSymbols) Meta() rule.Meta {
 }
 
 func (r NoForbiddenSymbols) Check(doc *document.Document, report func(rule.Finding)) {
+	var markup markupState
 	for _, ln := range doc.Lines {
 		if ln.InFence {
 			continue
 		}
 		spans := codeSpanRanges(ln.Text)
 		entities := htmlEntity.FindAllStringIndex(ln.Text, -1)
+		inMarkup := markup.mask(ln.Text)
 		for i, symbol := range ln.Text {
-			if !r.forbidden(symbol) || insideCodeSpan(i, spans) || symbol == ';' && entityEnd(i, entities) {
+			if !r.forbidden(symbol) || inMarkup[i] || insideCodeSpan(i, spans) || symbol == ';' && entityEnd(i, entities) {
 				continue
 			}
 			report(rule.Finding{
@@ -101,4 +106,111 @@ func entityEnd(i int, entities [][]int) bool {
 		}
 	}
 	return false
+}
+
+// markupState follows, across lines, the markup whose characters are syntax
+// rather than prose: an HTML tag with its attributes, the body of a <style> or
+// <script> element, and a Hugo shortcode tag. Each may span several lines.
+type markupState struct {
+	inTag     bool   // inside <name ...>
+	tagName   string // lowercase name of the tag being read ("/style" for a closer)
+	shortcode string // closing delimiter (">}}" or "%}}") while inside a shortcode tag
+	rawEnd    string // "</style" or "</script" while inside that element's body
+}
+
+// mask reports, per byte of text, whether it belongs to markup, and carries
+// the state over to the next line.
+func (s *markupState) mask(text string) []bool {
+	m := make([]bool, len(text))
+	lower := strings.ToLower(text)
+	for i := 0; i < len(text); {
+		var end int
+		switch {
+		case s.rawEnd != "":
+			end = s.skipRaw(lower, i)
+		case s.shortcode != "":
+			end = s.skipShortcode(text, i)
+		case s.inTag:
+			end = s.skipTag(text, i)
+		default:
+			s.open(text, lower, i)
+			if !s.inTag && s.shortcode == "" {
+				i++
+			}
+			continue
+		}
+		for k := i; k < end; k++ {
+			m[k] = true
+		}
+		i = end
+	}
+	return m
+}
+
+// skipRaw returns where the open <style> or <script> body stops in lower: at
+// its closing tag, which is then read as a tag, or at the end of the line.
+func (s *markupState) skipRaw(lower string, i int) int {
+	j := strings.Index(lower[i:], s.rawEnd)
+	if j < 0 {
+		return len(lower)
+	}
+	s.rawEnd = ""
+	return i + j
+}
+
+// skipShortcode returns the end of the open shortcode tag, or of the line.
+func (s *markupState) skipShortcode(text string, i int) int {
+	j := strings.Index(text[i:], s.shortcode)
+	if j < 0 {
+		return len(text)
+	}
+	end := i + j + len(s.shortcode)
+	s.shortcode = ""
+	return end
+}
+
+// skipTag returns the end of the open HTML tag, or of the line. Closing an
+// opening <style> or <script> tag starts that element's raw body.
+func (s *markupState) skipTag(text string, i int) int {
+	j := strings.IndexByte(text[i:], '>')
+	if j < 0 {
+		return len(text)
+	}
+	end := i + j + 1
+	s.inTag = false
+	selfClosing := j > 0 && text[end-2] == '/'
+	if (s.tagName == "style" || s.tagName == "script") && !selfClosing {
+		s.rawEnd = "</" + s.tagName
+	}
+	return end
+}
+
+// open starts a shortcode or an HTML tag when one begins at text[i].
+func (s *markupState) open(text, lower string, i int) {
+	switch {
+	case strings.HasPrefix(text[i:], "{{<"):
+		s.shortcode = ">}}"
+	case strings.HasPrefix(text[i:], "{{%"):
+		s.shortcode = "%}}"
+	case text[i] == '<' && i+1 < len(text) && tagStart(text[i+1]):
+		s.inTag = true
+		s.tagName = tagName(lower[i+1:])
+	}
+}
+
+// tagStart reports whether c, right after '<', opens a tag (a name, a closer,
+// or a comment/doctype) rather than a less-than sign in prose.
+func tagStart(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '/' || c == '!'
+}
+
+// tagName returns the leading tag name of s, which starts right after '<'.
+func tagName(s string) string {
+	end := strings.IndexFunc(s, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '/' && r != '!'
+	})
+	if end < 0 {
+		return s
+	}
+	return s[:end]
 }

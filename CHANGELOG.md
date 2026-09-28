@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-28
+
+### Fixed
+- `no-forbidden-symbols` no longer reports characters that are markup syntax: HTML tags and their attributes (a semicolon in `style="…;"`), the bodies of `<style>` and `<script>` elements, and Hugo shortcode tags (`{{< … >}}`, `{{% … %}}`), including ones that span several lines. Text between tags is still checked.
+
 ## [0.9.0] - 2026-09-28
 
 ### Added
