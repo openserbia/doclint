@@ -74,7 +74,7 @@ func resolveCacheDir(flag string) string {
 // configHash is a stable digest of the resolved config, so editing .doclint.yaml
 // invalidates cached findings.
 func configHash(cfg *config.Config) string {
-	b, err := json.Marshal(cfg)
+	b, err := json.Marshal(cfg) //nolint:musttag // only hashed, never decoded; field names need not be stable
 	if err != nil {
 		return ""
 	}
