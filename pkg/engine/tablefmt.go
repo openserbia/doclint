@@ -127,10 +127,7 @@ func renderTableRow(cells []string, widths []int) string {
 		if c < len(cells) {
 			cell = cells[c]
 		}
-		pad := w - utf8.RuneCountInString(cell)
-		if pad < 0 {
-			pad = 0
-		}
+		pad := max(w-utf8.RuneCountInString(cell), 0)
 		b.WriteByte(' ')
 		b.WriteString(cell)
 		b.WriteString(strings.Repeat(" ", pad))

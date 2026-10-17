@@ -5,6 +5,7 @@ package rule
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/openserbia/doclint/pkg/document"
 )
@@ -83,12 +84,7 @@ type Meta struct {
 
 // AppliesTo reports whether the rule runs on the given format.
 func (m Meta) AppliesTo(f document.Format) bool {
-	for _, x := range m.Formats {
-		if x == f {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(m.Formats, f)
 }
 
 // Finding is one reported issue.

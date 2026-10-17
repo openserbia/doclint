@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/pmezard/go-difflib/difflib"
@@ -28,8 +29,7 @@ func ApplyEdits(src []byte, edits []rule.TextEdit) ([]byte, error) {
 	}
 	out := make([]byte, len(src))
 	copy(out, src)
-	for i := len(sorted) - 1; i >= 0; i-- {
-		e := sorted[i]
+	for _, e := range slices.Backward(sorted) {
 		if e.Start < 0 || e.End > len(out) || e.Start > e.End {
 			return nil, fmt.Errorf("edit out of range [%d:%d] (len %d)", e.Start, e.End, len(out))
 		}

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -143,12 +144,7 @@ func cfgErr(format string, a ...any) error {
 }
 
 func contains(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(xs, s)
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -173,10 +169,7 @@ func didYouMean(got string, candidates []string) string {
 			best, bestDist = c, d
 		}
 	}
-	threshold := len([]rune(got))/suggestDivisor + 1
-	if threshold < minThreshold {
-		threshold = minThreshold
-	}
+	threshold := max(len([]rune(got))/suggestDivisor+1, minThreshold)
 	if bestDist <= threshold {
 		return fmt.Sprintf(" (did you mean %q?)", best)
 	}
